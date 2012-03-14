@@ -27,18 +27,18 @@ If Minnow is not to your liking those projects are definitely worth your conside
 
 ## Usage
 
-Minnow can be launched via leiningen:
-1) [Install leiningen](https://github.com/technomancy/leiningen/blob/master/README.md)
-2) lein plugin install lein-minnow "0.1.0"
-3) lein new foo
-4) cd foo
-5) lein minnow
+Minnow can be launched via leiningen:  
+1) [Install leiningen](https://github.com/technomancy/leiningen/blob/master/README.md)  
+2) lein plugin install lein-minnow "0.1.0"  
+3) lein new foo  
+4) cd foo  
+5) lein minnow  
 
 Minnow can be launched from a downloaded uberjar: java -jar <path to minnow uberjar>
 
-If you have checked out the sources, minnow can be run from leiningen:
-1) cd minnow
-2) lein run
+If you have checked out the sources, minnow can be run from leiningen:  
+1) cd minnow  
+2) lein run  
 
 ## Status
 
@@ -48,26 +48,26 @@ Tested on Ubuntu, untested on Windows or Mac.
 
 ## Keyboard shortcuts
 
-Shift-Ctl-R      Start repl for a project from project list
-Ctl-P	         Navigate to the project explorer
-Ctl-E	         Navigate to open editor window (if any)
-Ctl-R            Navigate to active repl input are (if any)
-Ctl-W            Close current editor window
-Alt-Down         Skip to next form
-Alt-Up           Skip to previous form
-Ctl-PageUp/Down  Move to next editor tab
-Shift-Ctl-F      Evaluate file
-Shift-Ctl-E      Evaluate selected text
-Shift-Ctl-S      Select top level form and evaluate
-Ctl-N		 Set repl namespace to that of file with focus
-Ctl-S            Save file
-Ctl-W            Close file
-Ctl-F            Start find dialog
-Shift-Ctl-R      Start REPL dialog
-Shift-Ctl-A      Toggle output pane position
-Ctl-E            Set focus to editor window
-Ctl-P	         Set focus to project explorer
-Ctl-R            Set focus to repl
+Shift-Ctl-R      Start repl for a project from project list  
+Ctl-P	         Navigate to the project explorer  
+Ctl-E	         Navigate to open editor window (if any)  
+Ctl-R            Navigate to active repl input are (if any)  
+Ctl-W            Close current editor window  
+Alt-Down         Skip to next form  
+Alt-Up           Skip to previous form  
+Ctl-PageUp/Down  Move to next editor tab  
+Shift-Ctl-F      Evaluate file  
+Shift-Ctl-E      Evaluate selected text  
+Shift-Ctl-S      Select top level form and evaluate  
+Ctl-N		 Set repl namespace to that of file with focus  
+Ctl-S            Save file  
+Ctl-W            Close file  
+Ctl-F            Start find dialog  
+Shift-Ctl-R      Start REPL dialog  
+Shift-Ctl-A      Toggle output pane position  
+Ctl-E            Set focus to editor window  
+Ctl-P	         Set focus to project explorer  
+Ctl-R            Set focus to repl  
 
 ## License
 
