@@ -97,7 +97,7 @@
         home  (System/getProperty "user.home")
         cp    (str 
                 (reduce str (interpose (File/pathSeparator) 
-                                       [(str home "/.m2/repository/org/clojure/tools.nrepl/0.2.0-b2/tools.nrepl-0.2.0-b2.jar")
+                                       [(str home "/.m2/repository/org/clojars/stevelindsay/tools.nrepl/0.2.0-b2/tools.nrepl-0.2.0-b2.jar")
                                         "src" 
                                         "classes"])) (File/pathSeparator) 
                 (cp/build-classpath-from-dir (str path (File/separator) "lib")))]
