@@ -497,7 +497,7 @@
           repl-area    (seesaw/top-bottom-split 
                          (seesaw/scrollable output-area) 
                          input-area 
-                         :divider-location 100)
+                         :divider-location 3/4)
           history      (atom {:idx -1 :v []})]
       (if-let [port (next-available-port @repl-port 20)]        
         (let [_ (reset! repl-port port) ; TODO - this is garbage, fix
@@ -789,7 +789,7 @@
                         :height 800
                         :width 1024
                         :menubar @state/main-menu
-                        :content (frame-content-1))     
+                        :content (frame-content-2))     
         n (atom frame-content-1)]
     (keymap/map-key f "shift control R" (fn [_] (repl-project-select)))
     (keymap/map-key f "shift control A" (fn [_] (seesaw/config! f :content ((swap! n (fn [p] (if (= p frame-content-1) 
