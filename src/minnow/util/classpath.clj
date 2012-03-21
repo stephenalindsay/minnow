@@ -12,12 +12,14 @@
 ;;   You must not remove this notice, or any other, from this software.
 ;;
 
-(ns minnow.project
-  (:require [clojure.java.shell :as shell]))
+(ns minnow.util.classpath
+  (:require [fs.core :as fs]))
 
-(defn new-project
-  [lein-path parent-dir name]
-  (println lein-path parent-dir name)
-  (shell/sh lein-path "new" name :dir parent-dir)
-  (shell/sh lein-path "deps"))
+(defn build-classpath-from-dir
+  "Grab all the jars from a directory and build a classpath string"
+  [dir]
+  (if-let [files (fs/list-dir dir)]
+    (let [jars  (filter #(.endsWith % ".jar") files)]
+      (.substring (reduce (fn [x y] (str x(java.io.File/pathSeparator)dir"/"y)) "" jars) 1))
+    ""))
 

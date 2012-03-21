@@ -12,7 +12,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 ;;
 
-(ns minnow.process
+(ns minnow.util.process
   (:require [clojure.java.io :as io]))
 
 (defn start-process

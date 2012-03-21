@@ -12,7 +12,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 ;;
 
-(ns minnow.state)
+(ns minnow.ui.state)
 
 (def standalone (atom true))
 (def current-repl (atom nil))

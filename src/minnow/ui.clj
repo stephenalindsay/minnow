@@ -15,7 +15,6 @@
 (ns minnow.ui
   ^{:doc "UI functions for Minnow"
     :author "Steve Lindsay"}
-  (:gen-class)
   (:require [clojure.java.io :as io]
             [seesaw.core :as seesaw]
             [seesaw.tree :as tree]
@@ -23,145 +22,38 @@
             [seesaw.keymap :as keymap]
             [seesaw.swingx :as swingx]
             [seesaw.mig :as mig]
-            [minnow.virtual-dir :as vd]
             [minnow.indent :as indent]
             [minnow.explorer :as explorer]
-            [minnow.project :as project]
-            [minnow.classpath :as cp]
-            [minnow.state :as state]
+            [minnow.util.classpath :as cp]
             [minnow.preferences :as prefs]
-            [minnow.widgets :as widgets]
-            [minnow.repl :as repl]
-            [clojure.tools.nrepl :as nrepl]
+            [minnow.ui.state :as state]
+            [minnow.ui.completion :as completion]
+            [minnow.ui.virtual-dir :as vd]
+            [minnow.ui.widgets :as widgets]
+            [minnow.ui.logging :as logging]    
+            [minnow.ui.repl :as repl]
+            [minnow.ui.text-area :as ta]
             [minnow.leiningen :as lein]
             [fontselector.core :as font]
-            [fs.core :as fs])
+            [clojure.pprint :as pp])
   (:import [java.awt Color Font Point]
            [java.util Date]
-           [java.text SimpleDateFormat]
            [javax.swing JLabel JViewport SwingUtilities ]
            [org.jdesktop.swingx JXCollapsiblePane]
-           [java.io File PrintStream FileOutputStream]
+           [java.io File]
            [org.fife.ui.rsyntaxtextarea RSyntaxTextArea TextEditorPane SyntaxConstants Token FileLocation]
-           [org.fife.ui.rtextarea RTextScrollPane RTextArea SearchEngine SearchContext]
-           [org.fife.ui.autocomplete AutoCompletion CompletionProvider FunctionCompletion
-            BasicCompletion DefaultCompletionProvider ParameterizedCompletion$Parameter]))
+           [org.fife.ui.rtextarea RTextScrollPane RTextArea SearchEngine SearchContext]))
 
 (declare evaluate-file)
-(declare evaluate-code-in-repl)
 (declare evaluate-selected)
 (declare select-form)
 (declare select-and-evaluate-form)
-(declare quit)
-(declare repl-area-listener)
-(declare get-default-font)
 (declare get-active-output-area)
 (declare set-namespace-to-active-file)
 
-(def repl-port (atom 7888))
-(def running-repls (atom []))
-
 (def open-files (atom []))
 
-(def df (SimpleDateFormat. "yyyyMMdd-HHmmss"))
-
-(def today (.format df (Date.)))
-
-(def home-dir (System/getProperty "user.home"))
-
-(def minnow-home-dir (str home-dir "/.minnow"))
-(def minnow-log-dir (str home-dir "/.minnow/log"))
-(def minnow-log (str minnow-log-dir "/" today ".log"))
-
 (def pane-to-file-map (atom {}))
-
-(defn setup-logging []
-  (when-not (fs/directory? minnow-home-dir) (fs/mkdir minnow-home-dir))
-  (when-not (fs/directory? minnow-log-dir) (fs/mkdir minnow-log-dir))
-  (let [ps (PrintStream. (FileOutputStream. (File. minnow-log)))] 
-    (System/setOut ps)
-    (System/setErr ps)))
-
-(defn add-shutdown-hook []
-  (.addShutdownHook (Runtime/getRuntime)
-    (proxy [Thread] []
-      (run [] 
-        (swap! running-repls #(doseq [r %]
-                                (try
-                                  (repl/stop {:repl r})
-                                  (catch Exception e (.printStackTrace e)))))))))
-
-(defn start-repl
-  [project-dir port]
-  (let [path  (.getAbsolutePath project-dir)
-        home  (System/getProperty "user.home")
-        cp    (str 
-                (reduce str (interpose (File/pathSeparator) 
-                                       [(str home "/.m2/repository/org/clojars/stevelindsay/tools.nrepl/0.2.0-b2/tools.nrepl-0.2.0-b2.jar")
-                                        "src" 
-                                        "classes"])) (File/pathSeparator) 
-                (cp/build-classpath-from-dir (str path (File/separator) "lib")))]
-    (println cp)
-    (if (re-matches #".*clojure-1.*jar.*" cp)
-      (do
-        (let [r (nrepl/client (repl/start port (.getAbsolutePath project-dir) cp) 1000)
-              s (nrepl/new-session r)
-              m {:repl r :session s}]
-          (swap! running-repls conj m)
-        m))
-      (throw (RuntimeException. "No clojure jar in classpath, have you run lein deps?")))))
-
-;; RSyntaxTextArea functions
-
-(defn add-publics-to-completion
-  [provider namespace]
-  (doseq [[sym var] (ns-publics namespace)]
-    (let [name (.getName sym)
-          {:keys [arglists]} (meta var)]
-      (.addCompletion provider (BasicCompletion. provider name (str arglists))))))
-
-(defn setup-auto-completion
-  [text-area]
-  (let [provider (DefaultCompletionProvider.)]
-    (add-publics-to-completion provider 'clojure.core)
-    (doto (AutoCompletion. provider)
-      (.install text-area))))
-
-(defn get-highlighting
-  [file]
-  (let [name (.getName file)]
-    (cond
-      (.endsWith name ".clj")  SyntaxConstants/SYNTAX_STYLE_CLOJURE
-      (.endsWith name ".html")  SyntaxConstants/SYNTAX_STYLE_HTML
-      (.endsWith name ".xhtml")  SyntaxConstants/SYNTAX_STYLE_HTML
-      (.endsWith name ".css")  SyntaxConstants/SYNTAX_STYLE_CSS
-      (.endsWith name ".java")  SyntaxConstants/SYNTAX_STYLE_JAVA
-      (.endsWith name ".properties")  SyntaxConstants/SYNTAX_STYLE_PROPERTIES_FILE
-      (.endsWith name ".sh")  SyntaxConstants/SYNTAX_STYLE_UNIX_SHELL
-      (.endsWith name ".scala")  SyntaxConstants/SYNTAX_STYLE_SCALA)))
-
-(defn set-text-area-defaults
-  ([text-area]
-    (set-text-area-defaults nil text-area))
-  ([file text-area]
-  (let [default-font (get-default-font)
-        highlighting (when file (get-highlighting file))]
-    (doto text-area
-      ;(.setTabsEmulated true) doesn't work, see below
-      (.setFont (if default-font default-font (Font. "Monospaced" Font/PLAIN 15)))
-      (.setAntiAliasingEnabled true)
-      (.setAutoIndentEnabled (not= SyntaxConstants/SYNTAX_STYLE_CLOJURE highlighting))
-      (.discardAllEdits)
-      (setup-auto-completion))
-    (when highlighting
-      (.setSyntaxEditingStyle text-area highlighting))
-    (indent/setup-auto-indent (.getDocument text-area))
-    ; weird method lookup issue for setTabsEmulated, time to hack the matrix
-    (-> org.fife.ui.rtextarea.RTextAreaBase 
-      (.getDeclaredMethod "setTabsEmulated" (into-array Class [Boolean/TYPE]))
-      (doto (.setAccessible true))
-      (.invoke text-area (into-array Object [true]))))
-  text-area))
 
 ;; File operations
 
@@ -198,22 +90,16 @@
                                        (.setRegularExpression true)))
     (scroll-caret-to-centre text-area)))
 
-(defn persist-open-files []
-  (prefs/add-pref "open-files" @open-files))
-
 (defn close-file 
   [file scroll-pane]
   (swap! open-files (fn [files] (into [] (filter #(not= (.getPath file) %) files))))
   (swap! pane-to-file-map dissoc scroll-pane)
-  (persist-open-files)
+  (prefs/set-open-files @open-files)
   (close-pane scroll-pane @state/editor-tab-pane))  
 
 (defn load-file-into-editor
   [file]
-  (let [text-area    (set-text-area-defaults file (TextEditorPane. 
-                                                    RTextArea/INSERT_MODE 
-                                                    true 
-                                                    (FileLocation/create file)))
+  (let [text-area    (ta/text-editor-pane file)
         scroll-pane  (RTextScrollPane. text-area)
         file-name    (.getName file)
         button-tab   (widgets/button-tab-component @state/editor-tab-pane file-name #(close-file file scroll-pane))
@@ -276,7 +162,7 @@
                           (if-not (some #{path} files)
                             (conj files path)
                             files))))
-    (persist-open-files)))
+    (prefs/set-open-files @open-files)))
 
 ;; Project filters - used for controlling what files are visible in file picker.
 
@@ -291,10 +177,10 @@
                                           (.isDirectory %))))
 
 (defn save-project-tree-pref []
-  (prefs/add-pref "project-list" (into [] (map #(.getPath %) (.listFiles @state/virtual-dir)))))
+  (prefs/set-project-list (into [] (map #(.getPath %) (.listFiles @state/virtual-dir)))))
 
 (defn load-project-tree-pref []
-  (if-let [projects (prefs/get-pref "project-list")]
+  (if-let [projects (prefs/get-project-list)]
     (into [] (map #(java.io.File. %) projects))
     []))
 
@@ -313,14 +199,14 @@
   [project-file])
 
 (defn open-project []
-  (let [previous-open-dir (prefs/get-pref "last-open-dir")    
+  (let [previous-open-dir (prefs/get-last-open-dir)    
         project-file      (chooser/choose-file 
                             :filters [maven-project-filter lein-project-filter]
                             :dir (if previous-open-dir
                                    previous-open-dir
                                    (System/getProperty "user.home")))]
     (when project-file
-      (prefs/add-pref "last-open-dir" (.getParent (.getParentFile project-file)))
+      (prefs/set-last-open-dir (.getParent (.getParentFile project-file)))
       (condp = (.getName project-file)
         "project.clj" (open-leiningen-project project-file)
         "pom.xml" (open-maven-project project-file)
@@ -346,33 +232,24 @@
       (.setCaretPosition text-area (min caret-pos (count new-content))))))
 
 (defn new-project []
-  (let [lein-path         (prefs/get-pref "lein-path")
-        previous-open-dir (prefs/get-pref "last-open-dir")]
+  (let [lein-path         (prefs/get-lein-path)
+        previous-open-dir (prefs/get-last-open-dir)]
     (if-let [project-dir  (chooser/choose-file
                             :dir (if previous-open-dir
                                    previous-open-dir
                                    (System/getProperty "user.home")))]
       (let [parent  (.getParent project-dir)
             name    (.getName project-dir)
-            resp    (project/new-project lein-path parent name)]
-        (prefs/add-pref "last-open-dir" (.getParent (.getParentFile project-dir)))
+            resp    (lein/new-project lein-path parent name)]
+        (prefs/set-last-open-dir (.getParent (.getParentFile project-dir)))
         (open-leiningen-project (io/file project-dir "project.clj"))))))
 
-(defn get-default-font []
-  (let [{:keys [family
-                style
-                size]} (prefs/get-pref "editor.font")]
-    (when (and family style size)
-      (java.awt.Font. family style size))))
-
 (defn update-default-editor-font [] 
-  (let [default-font (get-default-font)]
+  (let [default-font (prefs/get-default-font)]
     (when-let [f (seesaw/show! (if default-font 
                                  (font/selector default-font)
                                  (font/selector)))]
-      (prefs/add-pref "editor.font" {:family (.getFamily f)
-                                      :style (.getStyle f)
-                                      :size (.getSize f)})
+      (prefs/set-default-font f)
       (doseq [i (range (.getTabCount @state/editor-tab-pane))]
         (let [component (.getComponentAt @state/editor-tab-pane i)
               text-area (.getTextArea component)]
@@ -402,18 +279,19 @@
   (when-let [text-area (get-active-text-area)]
     (when (.endsWith (.getFileName text-area) ".clj")
       (when-let [ns (get-namespace (.replace (.getText text-area) (System/getProperty "line.separator") " "))]
-        (let [output-area (get-active-output-area)
-              repl        (get @state/output-area-to-repl-map output-area)]
-          (when (and output-area repl)
-            (evaluate-code-in-repl repl (str "(ns " ns ")") output-area true)))))))
+        (let [output-area  (get-active-output-area)
+              project-repl (get @state/output-area-to-repl-map output-area)]
+          (when (and output-area project-repl)
+            (repl/evaluate-code-in-repl project-repl (str "(ns " ns ")") output-area true)))))))
   
-(defn set-full-stacktraces-in-repl 
-  [b]
-  (doseq [r @running-repls]    
-    ;(evaluate-code-in-repl r (str "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* " b ")") (StringBuilder.))))
-  ))
-    
 ;; Menu 
+
+(defn quit []
+  (if-not @state/standalone
+    (do
+      (.hide @state/main-frame)
+      (reset! state/main-frame nil))
+    (System/exit 0)))
 
 (defn main-menu []
   (seesaw/menubar :items  
@@ -426,8 +304,8 @@
                                                            (seesaw/checkbox-menu-item :text "Show full stacktraces"
                                                                                       :listen [:action (fn [e]
                                                                                                          (if (seesaw/selection e)
-                                                                                                           (set-full-stacktraces-in-repl true)
-                                                                                                           (set-full-stacktraces-in-repl false)))])])
+                                                                                                           (repl/set-full-stacktraces-in-repl true)
+                                                                                                           (repl/set-full-stacktraces-in-repl false)))])])
                                  (seesaw/menu-item :text "Quit"
                                                    :listen [:action (fn [_] (quit))])])
                    (seesaw/menu :text "Project"
@@ -474,78 +352,6 @@
   (when (== 2 (.getClickCount e))
     (load-file-from-tree-selection e)))
 
-;; repl
-
-(defn next-available-port
-  [start-port n]
-  (let [ss (try
-             (java.net.ServerSocket. start-port)
-             (catch java.io.IOException, ioe (println "Port " start-port " unavailable")))]
-    (if ss
-      (do
-        (.setReuseAddress ss true)
-        (.close ss)
-        start-port)
-      (when (> n 0)
-        (recur (inc start-port) (dec n))))))
-
-(defn start-project-repl
-  [project-dir]
-  (try
-    (let [output-area  (set-text-area-defaults (File. "kludge.clj") (RSyntaxTextArea.))
-          input-area   (set-text-area-defaults (File. "kludge.clj") (RSyntaxTextArea.))
-          repl-area    (seesaw/top-bottom-split 
-                         (seesaw/scrollable output-area) 
-                         input-area 
-                         :divider-location 3/4)
-          history      (atom {:idx -1 :v []})]
-      (if-let [port (next-available-port @repl-port 20)]        
-        (let [_ (reset! repl-port port) ; TODO - this is garbage, fix
-              project-repl (start-repl project-dir port)
-              repl-close   #(repl/stop {:repl project-repl})
-              new-tab      {:title (widgets/button-tab-component @state/output-tab-pane (.getName project-dir) repl-close)
-                            :content repl-area
-                            :tip (.getAbsolutePath project-dir)}
-              main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
-          (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
-          (swap! state/output-area-to-repl-map assoc output-area project-repl)
-          (seesaw/listen input-area :key-pressed (fn [event] 
-                                                   (repl-area-listener event project-repl input-area output-area history)))
-          (when @state/output-tab-pane
-            (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane repl-area)))
-          (.setText output-area "user => ")
-          (.requestFocusInWindow input-area)
-          ;(evaluate-code-in-repl project-repl 
-          ;  "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* true)" output-area false)
-          (when main-ns
-            (evaluate-code-in-repl project-repl (str "(ns " main-ns ")") output-area true))
-          project-repl)
-        (seesaw/alert "Unable to find free port to run nREPL on")))
-      (catch Exception e 
-        (.printStackTrace e)
-        (seesaw/alert 
-          (str "Couldn't start repl, see exception for details\n\n" (.getMessage e))))))
-
-(defn evaluate-code-in-repl
-  ([project-repl code output-area]
-    (evaluate-code-in-repl project-repl code output-area true))
-  ([project-repl code output-area verbose]
-    (future 
-      (doseq [m (nrepl/message (:repl project-repl) 
-                               {:op :eval :code code :session (:session project-repl)})]
-        (println m)
-        (let [{:keys [out err ns value root-ex]} m]
-          (when err 
-            (.append output-area (format "\n%s" err)))
-          ;(when root-ex
-             ;  (println "ex : " (type root-ex)))
-          (when verbose
-            (when out
-              (.append output-area (format "\n%s" out)))
-            (when value
-              (.append output-area (format "\n%s => %s\n%s" ns code value))))
-          (.setCaretPosition output-area (-> output-area .getDocument .getLength)))))))
-
 (defn get-active-output-area []
   (when-let [tc (.getSelectedComponent @state/output-tab-pane)]
     (.getView (first (.getComponents (.getTopComponent tc))))))
@@ -584,7 +390,7 @@
       (when-let [repl (get @state/output-area-to-repl-map output-area)]
         (let [text-area   (.getTextArea selected-pane)
               code        (.getSelectedText text-area)]
-          (evaluate-code-in-repl repl code output-area true))))))  
+          (repl/evaluate-code-in-repl repl code output-area true))))))  
         
 (defn select-form []
   "Evaluate top level form relative to caret position"
@@ -602,51 +408,10 @@
 (defn evaluate-file []
   (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
     (when-let [output-area (get-active-output-area)]
-      (when-let [repl        (get @state/output-area-to-repl-map output-area)]
+      (when-let [r (get @state/output-area-to-repl-map output-area)]
         (.append output-area "\nEvaluating file...\n")
-        (evaluate-code-in-repl repl (.getText (.getTextArea selected-pane)) output-area true)
+        (repl/evaluate-code-in-repl r (.getText (.getTextArea selected-pane)) output-area true)
         (.append output-area "\nDone.\n")))))
-
-(defn update-repl-history!
-  [input history]
-  (swap! history (fn [{:keys [idx v] :as previous}]
-                   (let [n-1 (get v (- (count v) 1))]
-                     (if-not (= input n-1)
-                       (assoc previous :v (conj v input)
-                              :idx (inc idx))
-                       previous)))))
-
-(defn evaluate-repl-input 
-  [repl input-area output-area history]
-  (future
-    (let [input (.getText input-area)]
-      (update-repl-history! input history)
-      (evaluate-code-in-repl repl input output-area)
-      (doto input-area
-        (.requestFocusInWindow)
-        (.selectAll)))))
-
-(defn new-repl-idx
-  [idx roll-amount item-count]
-  (min (- item-count 1) (max 0 (+ idx roll-amount))))
-
-(defn roll-repl-history
-  [history input-area roll-amount]
-  (swap! history (fn [{:keys [idx v] :as previous}]
-                   (assoc previous :idx (min (- (count v) 1) (max 0 (+ idx roll-amount))))))
-  (let [{:keys [idx v]} @history]
-    (.setText input-area (get v idx))))
-
-;;
-
-(defn repl-area-listener 
-  [event repl input-area output-area history]
-  (when (= java.awt.event.InputEvent/CTRL_MASK (.getModifiers event))
-    (condp = (.getKeyCode event)
-      java.awt.event.KeyEvent/VK_ENTER (evaluate-repl-input repl input-area output-area history)
-      java.awt.event.KeyEvent/VK_UP (roll-repl-history history input-area -1)
-      java.awt.event.KeyEvent/VK_DOWN (roll-repl-history history input-area 1)
-      nil)))
 
 (defn search 
   [textbox forward wrap regex match-case]
@@ -758,7 +523,7 @@
   [listbox frame]
   (let [project-dir (seesaw/selection listbox)]
     (seesaw/hide! frame)
-    (start-project-repl project-dir)))
+    (repl/start-project-repl project-dir)))
 
 (defn repl-project-select []
   (let [project-list (.listFiles @state/virtual-dir)
@@ -791,10 +556,13 @@
                         :menubar @state/main-menu
                         :content (frame-content-2))     
         n (atom frame-content-1)]
-    (keymap/map-key f "shift control R" (fn [_] (repl-project-select)))
-    (keymap/map-key f "shift control A" (fn [_] (seesaw/config! f :content ((swap! n (fn [p] (if (= p frame-content-1) 
-                                                                                               frame-content-2 
-                                                                                               frame-content-1)))))))
+    (keymap/map-key f "shift control R" (fn [_] 
+                                          (repl-project-select)))
+    (keymap/map-key f "shift control A" (fn [_] 
+                                          (seesaw/config! f :content ((swap! n (fn [p] 
+                                                                                 (if (= p frame-content-1)
+                                                                                   frame-content-2
+                                                                                   frame-content-1)))))))
     f))
 
 (defn set-global-keybindings
@@ -817,7 +585,7 @@
                              root)))
 
 (defn open-previously-open-files []
-  (reset! open-files (into [] (prefs/get-pref "open-files")))
+  (reset! open-files (into [] (prefs/get-open-files)))
   (doseq [file @open-files]
     (load-file-into-editor (File. file))))
 
@@ -838,7 +606,7 @@
               (.setText (.getTextArea pane) (slurp file)))))))))
       
 ;; Application control
-(defn init-state []
+(defn init-ui-state []
   (reset! state/main-menu (main-menu))
   (reset! state/virtual-dir (vd/new-dir (load-project-tree-pref)))
   (reset! state/project-tree 
@@ -846,7 +614,7 @@
             @state/virtual-dir
             {:mouse-pressed-fn load-file-on-double-click
              :enter-press-fn load-file-from-tree-selection
-             :start-repl-fn start-project-repl
+             :start-repl-fn repl/start-project-repl
              :load-file-fn load-file-into-editor
              :close-project-fn close-project }))
   (reset! state/output-tab-pane (seesaw/tabbed-panel))
@@ -858,42 +626,6 @@
 
 (defn gui []
   (seesaw/native!)
-  (init-state)
+  (init-ui-state)
   (seesaw/show! @state/main-frame))
-
-(defn quit []
-  (if-not @state/standalone
-    (do
-      (.hide @state/main-frame)
-      (reset! state/main-frame nil))
-    (System/exit 0)))
-
-(defn check-project
-  [project-path]
-  (let [f (File. project-path)]
-    (when (and
-            (.exists f)
-            (.isDirectory f)
-            (not (filter #(= % f) (.listFiles @state/virtual-dir)))
-            (filter #(= % (File. "project.clj")) (.listFiles f)))
-      (add-path-to-virtual-dir f))))
-
-(defn run 
-  [project-path]
-  (println "Starting minnow : " (.format df (Date.)))
-  (add-shutdown-hook)
-  (setup-logging)
-  (gui)
-  (when project-path
-    (check-project project-path)))
-    
-(defn repl-run []
-  (reset! state/standalone false)
-  (run nil))
-
-(defn -main 
-  ([]
-   (-main nil))
-  ([project-path]
-   (run project-path)))
 

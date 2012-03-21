@@ -12,7 +12,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 ;;
 
-(ns minnow.widgets
+(ns minnow.ui.widgets
   (:import  [javax.swing JLabel JPanel JButton AbstractButton BorderFactory]
             [java.awt FlowLayout Dimension BasicStroke Color]
             [java.awt.event MouseAdapter ActionListener]

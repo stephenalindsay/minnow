@@ -13,6 +13,7 @@
 ;;
 
 (ns minnow.leiningen
+  (:require [clojure.java.shell :as shell])
   (:import [java.io File]))
 
 (defn get-main-fn
@@ -32,3 +33,10 @@
              (clojure.java.io/reader project-file))]
         (binding [*read-eval* false]
           (read r))))))
+
+(defn new-project
+  [lein-path parent-dir name]
+  (println lein-path parent-dir name)
+  (shell/sh lein-path "new" name :dir parent-dir)
+  (shell/sh lein-path "deps"))
+

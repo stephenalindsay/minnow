@@ -19,10 +19,10 @@
     [seesaw.tree :as tree]
     [seesaw.swingx :as swingx]
     [seesaw.keymap :as keymap]
-    [minnow.state :as state]
-    [minnow.virtual-dir :as vd]
-    [minnow.preferences :as prefs])
-  (:import [java.io File]))
+    [minnow.preferences :as prefs]
+    [minnow.ui.virtual-dir :as vd])
+  (:import 
+    [java.io File]))
 
 (defn project-tree-model
   [data]

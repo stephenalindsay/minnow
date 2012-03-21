@@ -12,23 +12,23 @@
 ;;   You must not remove this notice, or any other, from this software.
 ;;
 
-(ns minnow.virtual-dir)
+(ns minnow.ui.virtual-dir)
 
 (defprotocol IVirtualDir
-  (isDirectory [this])
-  (listFiles [this])
-  (addPath [this path])
-  (removePath [this path])
-  (getName [this])
+  (isDirectory   [this])
+  (listFiles     [this])
+  (addPath       [this path])
+  (removePath    [this path])
+  (getName       [this])
   (getParentFile [this]))
 
 (defrecord VirtualDir [paths]
   IVirtualDir
-  (isDirectory [this] true)
-  (listFiles [this] (sort @paths))
-  (addPath [this path] (swap! paths conj path))
-  (removePath [this path] (swap! paths (fn [p] (remove #(= % path) p))))
-  (getName [this] "")
+  (isDirectory   [this] true)
+  (listFiles     [this] (sort @paths))
+  (addPath       [this path] (swap! paths conj path))
+  (removePath    [this path] (swap! paths (fn [p] (remove #(= % path) p))))
+  (getName       [this] "")
   (getParentFile [this] nil))
 
 (defn new-dir 
