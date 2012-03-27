@@ -29,7 +29,7 @@ If Minnow is not to your liking those projects are definitely worth your conside
 
 Minnow can be launched via leiningen:  
 1) [Install leiningen](https://github.com/technomancy/leiningen/blob/master/README.md)  
-2) lein plugin install lein-minnow "0.1.0"  
+2) lein plugin install lein-minnow "0.1.1"  
 3) lein new foo  
 4) cd foo  
 5) lein minnow  
