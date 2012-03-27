@@ -34,11 +34,12 @@
 
 (defn get-process-output
   [process pause]
-  (Thread/sleep pause)
-  (let [in   (msg-from-stream (.getInputStream process))
-        err  (msg-from-stream (.getErrorStream process))
-        exit (try
-               (.exitValue process)
-               (catch Exception e nil))]
-    {:in in :err err :exit exit}))
+  (deref 
+    (future
+      (let [in   (msg-from-stream (.getInputStream process))
+            err  (msg-from-stream (.getErrorStream process))
+            exit (try
+                   (.exitValue process)
+                   (catch Exception e nil))]
+        {:in in :err err :exit exit})) pause {:err "Process failed to start in time"}))
 

@@ -36,7 +36,7 @@
             [minnow.leiningen :as lein]
             [fontselector.core :as font]
             [clojure.pprint :as pp])
-  (:import [java.awt Color Font Point]
+  (:import [java.awt Color Font Point Dimension]
            [java.util Date]
            [javax.swing JLabel JViewport SwingUtilities ]
            [org.jdesktop.swingx JXCollapsiblePane]
@@ -124,7 +124,8 @@
     (keymap/map-key text-area "alt UP" (fn [_] (skip-to-next-def text-area false)))    
     (keymap/map-key text-area "control PAGE_UP" (fn [_] (tab-skip-fn -1)))                                                  
     (keymap/map-key text-area "control PAGE_DOWN" (fn [_] (tab-skip-fn 1)))
-    (keymap/map-key text-area "shift control F" (fn [_] (evaluate-file)))
+    (keymap/map-key @state/main-frame 
+                    "shift control F" (fn [_] (evaluate-file)))
     (keymap/map-key text-area "shift control E" (fn [_] (evaluate-selected)))    
     (keymap/map-key text-area "shift control S" (fn [_] (select-and-evaluate-form)))    
     (keymap/map-key text-area "control N" (fn [_] (set-namespace-to-active-file)))
@@ -477,7 +478,7 @@
                       (.setCollapsed true))
         panel       (mig/mig-panel
                       :constraints ["insets 0 0 0 0" "" ""]
-                      :items [[@state/editor-tab-pane "height :3000:,width :3000:, wrap"]
+                      :items [[@state/editor-tab-pane "height :3000, width :3000, wrap"]
                               [collapsible ""]])]
     (keymap/map-key panel "control F" (fn [_] 
                                         (.setEnabled replace-btn false)
@@ -497,6 +498,7 @@
                                        (.setEnabled replace-btn false)
                                        (if-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
                                          (.requestFocusInWindow (.getTextArea selected-pane)))))                                      
+    (.setMinimumSize panel (Dimension. 100 100))
     panel))
   
 (defn frame-content-1 []
@@ -516,7 +518,7 @@
     (seesaw/left-right-split
       (editor-panel)
       @state/output-tab-pane
-      :divider-location 3/5)
+      :divider-location 750)
     :divider-location 200))
 
 (defn start-repl-from-list-selection

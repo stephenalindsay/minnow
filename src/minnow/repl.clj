@@ -20,7 +20,7 @@
   (:import 
     [java.io File]))
 
-(def ^:dynamic *startup-wait* 5000)
+(def ^:dynamic *startup-wait* 10000)
 (def nrepl-jar-path "/.m2/repository/org/clojars/stevelindsay/tools.nrepl/0.2.0-b2/tools.nrepl-0.2.0-b2.jar")
 
 (defn stop 
@@ -43,7 +43,8 @@
                       working-dir)
             {:keys [in err exit]} (process/get-process-output proc *startup-wait*)
             _       (when exit (throw (RuntimeException. (str {:exit exit :out in :err err}))))
-            client  (nrepl/client (nrepl/connect :port port) 1000)
+            _ (Thread/sleep 5000)
+            client  (nrepl/client (nrepl/connect :port port) 60000)
             session (nrepl/new-session client)]
         {:client client :session session :process proc})
       (throw (RuntimeException. "No clojure jar in classpath.")))))

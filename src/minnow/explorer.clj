@@ -80,7 +80,10 @@
                       (menu-item tree root text f file)))]
       (if (and (some (set (.listFiles root)) [file]) start-repl-fn)
         [(menu-fn "Start REPL" start-repl-fn)
-         (menu-fn "Close Project" close-project-fn)]
+         (menu-fn "Close Project" close-project-fn)
+         (menu-fn "New File" new-file-fn)
+         (menu-fn "New Directory" new-dir-fn)
+         (menu-fn "Reload" identity)]
         (if (and (.isDirectory file) (or new-file-fn new-dir-fn)) 
           (filter identity
                   [(menu-fn "New File" new-file-fn)
