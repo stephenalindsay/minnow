@@ -27,4 +27,5 @@
 (def virtual-dir (atom nil))
 (def output-area-to-repl-map (atom {}))
 (def debug-repl (atom false))
+(def main-split (atom nil))
 

@@ -512,13 +512,15 @@
     :divider-location 200))
 
 (defn frame-content-2 []
+  (.setMinimumSize @state/output-tab-pane (Dimension.))
+  (reset! 
+    state/main-split (seesaw/left-right-split
+                       (editor-panel)
+                       nil))
   (seesaw/left-right-split
     (seesaw/scrollable
       @state/project-tree)
-    (seesaw/left-right-split
-      (editor-panel)
-      @state/output-tab-pane
-      :divider-location 750)
+    @state/main-split
     :divider-location 200))
 
 (defn start-repl-from-list-selection

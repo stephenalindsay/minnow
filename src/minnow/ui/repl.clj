@@ -131,8 +131,9 @@
               main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
           (swap! running-repls conj project-repl)
           (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
+          (.setRightComponent @state/main-split @state/output-tab-pane)          
+          (.setDividerLocation @state/main-split 0.65)
           (swap! state/output-area-to-repl-map assoc output-area project-repl)
-          (println 2)
           (seesaw/listen input-area :key-pressed (fn [event]
                                                    (repl-area-listener event project-repl input-area output-area history)))
           (when @state/output-tab-pane
