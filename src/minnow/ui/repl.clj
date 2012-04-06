@@ -120,37 +120,33 @@
                          (seesaw/scrollable output-area)
                          input-area
                          :divider-location 3/4)
-          history      (atom {:idx -1 :v []})]
-      (if-let [port (next-available-port @repl-port 20)]
-        (let [_ (reset! repl-port port) ; TODO - this is garbage, fix
-              project-repl (repl/start (.getAbsolutePath project-dir) port)
-              repl-close   #(repl/stop project-repl)
-              new-tab      {:title (widgets/button-tab-component @state/output-tab-pane (.getName project-dir) repl-close)
-                            :content repl-area
-                            :tip (str (.getAbsolutePath project-dir) " : " port)}
-              main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
-          (swap! running-repls conj project-repl)
-          (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
-          (.setRightComponent @state/main-split @state/output-tab-pane)          
-          (.setDividerLocation @state/main-split 0.65)
-          (swap! state/output-area-to-repl-map assoc output-area project-repl)
-          (seesaw/listen input-area :key-pressed (fn [event]
-                                                   (repl-area-listener event project-repl input-area output-area history)))
-          (when @state/output-tab-pane
-            (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane repl-area)))
-          (.setText output-area "user => ")
-          (.requestFocusInWindow input-area)
-          ;(evaluate-code-in-repl project-repl 
-          ;  "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* true)" output-area false)
-          (when main-ns
-            (evaluate-code-in-repl project-repl (str "(ns " main-ns ")") output-area true))
-          project-repl)
-        (seesaw/alert "Unable to find free port to run nREPL on")))
+          history      (atom {:idx -1 :v []})
+          project-repl (repl/start (.getAbsolutePath project-dir))
+          repl-close   #(repl/stop project-repl)
+          new-tab      {:title (widgets/button-tab-component @state/output-tab-pane (.getName project-dir) repl-close)
+                        :content repl-area
+                        :tip (str (.getAbsolutePath project-dir) " : " (:port project-repl))}
+          main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
+        (swap! running-repls conj project-repl)
+        (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
+        (.setRightComponent @state/main-split @state/output-tab-pane)          
+        (.setDividerLocation @state/main-split 0.65)
+        (swap! state/output-area-to-repl-map assoc output-area project-repl)
+        (seesaw/listen input-area :key-pressed (fn [event]
+                                                 (repl-area-listener event project-repl input-area output-area history)))
+        (when @state/output-tab-pane
+          (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane repl-area)))
+        (.setText output-area "user => ")
+        (.requestFocusInWindow input-area)
+        ;(evaluate-code-in-repl project-repl 
+        ;  "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* true)" output-area false)
+        (when main-ns
+          (evaluate-code-in-repl project-repl (str "(ns " main-ns ")") output-area true))
+        project-repl)
       (catch Exception e
         (.printStackTrace e)
         (seesaw/alert
           (str "Couldn't start repl, see exception for details\n\n" (.getMessage e))))))
-
 
 (defn shutdown-running-repls []
   (swap! running-repls #(doseq [r %]

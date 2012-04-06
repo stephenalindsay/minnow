@@ -2,6 +2,8 @@
 
 Minnow is a simple programmer's editor for Clojure.
 
+NOTE: Very much alpha software. There will be bugs. You have been warned.
+
 Minnow is intended to be a comfortable first editor for folks new to Clojure who don't already 
 have a strong attachment to any of the other Clojure development environments.
 
@@ -46,7 +48,7 @@ Very much a work in progress,
 
 Tested on Ubuntu, untested on Windows or Mac.
 
-## Keyboard shortcuts
+## Keyboard shortcuts (there will be changes)
 
 Shift-Ctl-R      Start repl for a project from project list  
 Ctl-P	         Navigate to the project explorer  

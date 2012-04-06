@@ -15,13 +15,18 @@
 (ns minnow.repl
   (:require 
     [clojure.tools.nrepl :as nrepl]
+    [clojure.tools.nrepl.server :as server]
+    [clojure.tools.nrepl.ack :as ack]
     [minnow.util.classpath :as cp]
     [minnow.util.process :as process])
   (:import 
     [java.io File]))
 
-(def ^:dynamic *startup-wait* 10000)
-(def nrepl-jar-path "/.m2/repository/org/clojars/stevelindsay/tools.nrepl/0.2.0-b2/tools.nrepl-0.2.0-b2.jar")
+(def nrepl-jars ["/.m2/repository/minnow/nrepl/minnow.nrepl/0.1.0/minnow.nrepl-0.1.0.jar"
+                 "/.m2/repository/org/clojure/tools.nrepl/0.2.0-beta2/tools.nrepl-0.2.0-beta2.jar"
+                 "/.m2/repository/org/clojure/tools.logging/0.2.3/tools.logging-0.2.3.jar"
+                 "/.m2/repository/clj-logging-config/clj-logging-config/1.9.6/clj-logging-config-1.9.6.jar"
+                 "/.m2/repository/log4j/log4j/1.2.16/log4j-1.2.16.jar"])
 
 (defn stop 
   [{:keys [process]}]
@@ -29,24 +34,30 @@
   (.destroy process))
 
 (defn start
-  [working-dir port]
+  [working-dir]
   (let [home      (System/getProperty "user.home")
         classpath (str 
-                    (reduce str (interpose (File/pathSeparator) 
-                                       [(str home nrepl-jar-path) "src" "classes"])) 
+                    (reduce str (interpose (File/pathSeparator)
+                                           (conj (map #(str home %) nrepl-jars) 
+                                                 "src" "test" "classes")))
                     (File/pathSeparator) 
                     (cp/build-classpath-from-dir (str working-dir (File/separator) "lib")))]
-    (println classpath)
     (if (re-matches #".*clojure-1.*jar.*" classpath)
-      (let [proc    (process/start-process
-                      ["java" "-cp" classpath "clojure.tools.nrepl.main" "--port" (str port)] 
-                      working-dir)
-            {:keys [in err exit]} (process/get-process-output proc *startup-wait*)
-            _       (when exit (throw (RuntimeException. (str {:exit exit :out in :err err}))))
-            _ (Thread/sleep 5000)
-            client  (nrepl/client (nrepl/connect :port port) 60000)
-            session (nrepl/new-session client)]
-        {:client client :session session :process proc})
+      (let [ack-server (promise)]
+        (ack/reset-ack-port!)
+        (future 
+          (deliver ack-server (server/start-server :handler (ack/handle-ack false))))
+        (if (deref ack-server 5000 false)
+          (let [ack-port  (.getLocalPort (:ss @@ack-server))
+                proc      (process/start-process
+                            ["java" "-cp" classpath "clojure.main" "-m" "minnow.nrepl" (str ack-port)] 
+                            working-dir)]
+            (if-let [port (ack/wait-for-ack 15000)]
+              (let [client  (nrepl/client (nrepl/connect :port port) 60000)
+                    session (nrepl/new-session client)]
+                (println "nREPL started on port: " port)
+                {:client client :session session :process proc})
+              (throw (RuntimeException. "Timout waiting for ack"))))
+          (throw (RuntimeException. "Took too long to start ack server"))))
       (throw (RuntimeException. "No clojure jar in classpath.")))))
-
 
