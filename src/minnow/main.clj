@@ -15,7 +15,7 @@
 (ns minnow.main
   ^{:doc "Entry points for Minnow"
     :author "Steve Lindsay"}  
-  (:gen-class)
+  ;(:gen-class)
   (:require 
     [minnow.ui :as ui]
     [minnow.ui.state :as state]

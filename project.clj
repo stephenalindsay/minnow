@@ -8,7 +8,8 @@
                  [org.clojars.stevelindsay/rsyntaxtextarea "2.0.1"]
                  [org.clojars.stevelindsay/autocomplete "2.0.0"]
                  [fontselector "1.0.0"]
-                 [minnow.nrepl "0.1.0"]]
+                 ;[minnow.nrepl "0.1.0"]
+                 ]
   :main minnow.main
   ;:aot :all
   )
