@@ -31,10 +31,11 @@ If Minnow is not to your liking those projects are definitely worth your conside
 
 Minnow can be launched via leiningen:  
 1) [Install leiningen](https://github.com/technomancy/leiningen/blob/master/README.md)  
-2) lein plugin install lein-minnow "0.1.1"  
-3) lein new foo  
-4) cd foo  
-5) lein minnow  
+2) lein plugin install lein-minnow "0.1.2"  
+3) lein install minnow.nrepl
+4) lein new foo  
+5) cd foo  
+6) lein minnow  
 
 Minnow can be launched from a downloaded uberjar: java -jar <path to minnow uberjar>
 
