@@ -35,7 +35,8 @@ Minnow can be launched via leiningen:
 3) lein install minnow.nrepl "0.1.0"   
 4) lein new foo  
 5) cd foo  
-6) lein minnow  
+6) lein deps   
+7) lein minnow  
 
 Minnow can be launched from a downloaded uberjar: java -jar <path to minnow uberjar>
 
