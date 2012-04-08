@@ -26,7 +26,8 @@
                  "/.m2/repository/org/clojure/tools.nrepl/0.2.0-beta2/tools.nrepl-0.2.0-beta2.jar"
                  "/.m2/repository/org/clojure/tools.logging/0.2.3/tools.logging-0.2.3.jar"
                  "/.m2/repository/clj-logging-config/clj-logging-config/1.9.6/clj-logging-config-1.9.6.jar"
-                 "/.m2/repository/log4j/log4j/1.2.16/log4j-1.2.16.jar"])
+                 "/.m2/repository/log4j/log4j/1.2.16/log4j-1.2.16.jar"
+                 "/.m2/repository/com.cemerick/pomegranate-0.0.10.jar"])
 
 (defn stop 
   [{:keys [process]}]
