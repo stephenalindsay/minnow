@@ -14,6 +14,7 @@
 
 (ns minnow.ui.repl
   (:require 
+    [clojure.stacktrace :as st]
     [clojure.tools.nrepl :as nrepl]
     [seesaw.core :as seesaw]
     [minnow.repl :as repl]
@@ -78,16 +79,15 @@
                                 :code code
                                 :session (:session project-repl)})]
         (println m)
-        (let [{:keys [out err ns value root-ex]} m]
+        (let [{:keys [out err ns value ex root-ex]} m]
           (when err
             (.append output-area (format "\n%s" err)))
-          ;(when root-ex
-             ;  (println "ex : " (type root-ex)))
+          (when ex 
+            (future 
+              (evaluate-code-in-repl project-repl "(clojure.stacktrace/e)" output-area)))
           (when verbose
             (when out
-              ;(let [sw (java.io.StringWriter.)]
-               ; (pp/pprint out sw)
-                (.append output-area (format "\n%s" out)));)
+              (.append output-area (format "\n%s" out)))
             (when value
               (.append output-area (format "\n%s => %s\n%s" ns code value))))
           (.setCaretPosition output-area (-> output-area .getDocument .getLength)))))))
@@ -141,7 +141,8 @@
         ;(evaluate-code-in-repl project-repl 
         ;  "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* true)" output-area false)
         (when main-ns
-          (evaluate-code-in-repl project-repl (str "(ns " main-ns ")") output-area true))
+          (evaluate-code-in-repl project-repl (str "(ns " main-ns ")") output-area true)
+          (evaluate-code-in-repl project-repl "(require 'clojure.stacktrace)" output-area true))      
         project-repl)
       (catch Exception e
         (.printStackTrace e)
