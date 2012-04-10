@@ -40,7 +40,7 @@
         classpath (str 
                     (reduce str (interpose (File/pathSeparator)
                                            (conj (map #(str home %) nrepl-jars) 
-                                                 "src" "test" "classes")))
+                                                 "src" "test")))
                     (File/pathSeparator) 
                     (cp/build-classpath-from-dir (str working-dir (File/separator) "lib")))]
     (if (re-matches #".*clojure-1.*jar.*" classpath)

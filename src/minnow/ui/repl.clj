@@ -27,7 +27,6 @@
     [java.io File IOException]
     [java.awt.event KeyEvent InputEvent]))
 
-(def repl-port (atom 7888))
 (def running-repls (atom []))
 
 (defn set-full-stacktraces-in-repl

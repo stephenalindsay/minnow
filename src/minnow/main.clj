@@ -15,14 +15,15 @@
 (ns minnow.main
   ^{:doc "Entry points for Minnow"
     :author "Steve Lindsay"}  
-  ;(:gen-class)
+  (:gen-class)
   (:require 
     [minnow.ui :as ui]
     [minnow.ui.state :as state]
     [minnow.ui.logging :as logging]
     [minnow.ui.repl :as repl])
   (:import
-    [java.io File]))
+    [java.io File]
+    clojure.tools.nrepl.transport.Transport))
 
 (defn add-shutdown-hook []
   (.addShutdownHook (Runtime/getRuntime)
