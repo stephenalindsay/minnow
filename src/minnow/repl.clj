@@ -46,8 +46,10 @@
     (if (re-matches #".*clojure-1.*jar.*" classpath)
       (let [ack-server (promise)]
         (ack/reset-ack-port!)
-        (future 
-          (deliver ack-server (server/start-server :handler (ack/handle-ack false))))
+        ;(future 
+        (send-off (agent nil)
+          (fn [_]
+            (deliver ack-server (server/start-server :handler (ack/handle-ack false)))))
         (if (deref ack-server 5000 false)
           (let [ack-port  (.getLocalPort (:ss @@ack-server))
                 proc      (process/start-process

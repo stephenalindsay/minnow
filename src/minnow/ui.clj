@@ -232,18 +232,28 @@
       (.setText text-area new-content)
       (.setCaretPosition text-area (min caret-pos (count new-content))))))
 
+(defn get-lein-path []
+  (if-let [lein-path (prefs/get-lein-path)]
+    lein-path
+    (do
+      (seesaw/alert :text "Leiningen path not set, please set path to leiningen script.")
+      (when-let [f (chooser/choose-file)]
+        (let [path (.getPath f)]
+          (prefs/set-lein-path path)
+          path)))))
+
 (defn new-project []
-  (let [lein-path         (prefs/get-lein-path)
-        previous-open-dir (prefs/get-last-open-dir)]
-    (if-let [project-dir  (chooser/choose-file
-                            :dir (if previous-open-dir
-                                   previous-open-dir
-                                   (System/getProperty "user.home")))]
-      (let [parent  (.getParent project-dir)
-            name    (.getName project-dir)
-            resp    (lein/new-project lein-path parent name)]
-        (prefs/set-last-open-dir (.getParent (.getParentFile project-dir)))
-        (open-leiningen-project (io/file project-dir "project.clj"))))))
+  (when-let [lein-path (get-lein-path)]
+    (let [previous-open-dir (prefs/get-last-open-dir)]
+      (if-let [project-dir  (chooser/choose-file
+                              :dir (if previous-open-dir
+                                     previous-open-dir
+                                     (System/getProperty "user.home")))]
+        (let [parent  (.getParent project-dir)
+              name    (.getName project-dir)
+              resp    (lein/new-project lein-path parent name)]
+          (prefs/set-last-open-dir (.getParent (.getParentFile project-dir)))
+          (open-leiningen-project (io/file project-dir "project.clj")))))))
 
 (defn update-default-editor-font [] 
   (let [default-font (prefs/get-default-font)]
