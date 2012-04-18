@@ -38,8 +38,6 @@ Minnow can be launched via leiningen:
 6) lein deps   
 7) lein minnow  
 
-Minnow can be launched from a downloaded uberjar: java -jar <path to minnow uberjar>
-
 If you have checked out the sources, minnow can be run from leiningen:  
 1) cd minnow  
 2) lein run  
