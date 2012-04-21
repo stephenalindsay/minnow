@@ -2,8 +2,16 @@
 
 Minnow is a simple programmer's editor for Clojure.
 
-NOTE: Very much alpha software. There will be bugs. You have been warned.
-
+NOTE: Very much alpha software. 
+===============================
+There will be bugs. You have been warned.  
+=========================================  
+  
+  
+  
+  
+  
+  
 Minnow is intended to be a comfortable first editor for folks new to Clojure who don't already 
 have a strong attachment to any of the other Clojure development environments.
 
