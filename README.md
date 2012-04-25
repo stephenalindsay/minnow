@@ -2,8 +2,16 @@
 
 Minnow is a simple programmer's editor for Clojure.
 
-NOTE: Very much alpha software. There will be bugs. You have been warned.
-
+NOTE: Very much alpha software. 
+===============================
+There will be bugs. You have been warned.  
+=========================================  
+  
+  
+  
+  
+  
+  
 Minnow is intended to be a comfortable first editor for folks new to Clojure who don't already 
 have a strong attachment to any of the other Clojure development environments.
 
@@ -37,8 +45,6 @@ Minnow can be launched via leiningen:
 5) cd foo  
 6) lein deps   
 7) lein minnow  
-
-Minnow can be launched from a downloaded uberjar: java -jar <path to minnow uberjar>
 
 If you have checked out the sources, minnow can be run from leiningen:  
 1) cd minnow  
