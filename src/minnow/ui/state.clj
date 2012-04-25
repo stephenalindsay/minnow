@@ -28,4 +28,5 @@
 (def output-area-to-repl-map (atom {}))
 (def debug-repl (atom false))
 (def main-split (atom nil))
+(def doc-window (atom nil))
 

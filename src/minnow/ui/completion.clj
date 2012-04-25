@@ -16,7 +16,6 @@
   (:import 
     [org.fife.ui.autocomplete AutoCompletion BasicCompletion DefaultCompletionProvider]))
 
-
 (defn add-publics-to-completion
   [provider namespace]
   (doseq [[sym var] (ns-publics namespace)]
@@ -25,6 +24,7 @@
       (.addCompletion provider (BasicCompletion. provider name (str arglists))))))
 
 (defn setup-auto-completion
+  "Add RSyntaxTextArea completion to the text area"
   [text-area]
   (let [provider (DefaultCompletionProvider.)]
     (add-publics-to-completion provider 'clojure.core)

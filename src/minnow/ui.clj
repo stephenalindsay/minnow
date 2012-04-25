@@ -35,14 +35,18 @@
             [minnow.ui.text-area :as ta]
             [minnow.leiningen :as lein]
             [fontselector.core :as font]
-            [clojure.pprint :as pp])
+            [clojure.pprint :as pp]
+            [clojure.repl])
   (:import [java.awt Color Font Point Dimension]
            [java.util Date]
            [javax.swing JLabel JViewport SwingUtilities ]
+           [javax.swing.text Utilities]
            [org.jdesktop.swingx JXCollapsiblePane]
            [java.io File]
            [org.fife.ui.rsyntaxtextarea RSyntaxTextArea TextEditorPane SyntaxConstants Token FileLocation]
            [org.fife.ui.rtextarea RTextScrollPane RTextArea SearchEngine SearchContext]))
+
+(def doc-agent (agent nil))
 
 (declare evaluate-file)
 (declare evaluate-selected)
@@ -50,6 +54,7 @@
 (declare select-and-evaluate-form)
 (declare get-active-output-area)
 (declare set-namespace-to-active-file)
+(declare get-active-text-area)
 
 (def open-files (atom []))
 
@@ -90,12 +95,44 @@
                                        (.setRegularExpression true)))
     (scroll-caret-to-centre text-area)))
 
-(defn close-file 
+(defn close-file
   [file scroll-pane]
   (swap! open-files (fn [files] (into [] (filter #(not= (.getPath file) %) files))))
   (swap! pane-to-file-map dissoc scroll-pane)
   (prefs/set-open-files @open-files)
-  (close-pane scroll-pane @state/editor-tab-pane))  
+  (close-pane scroll-pane @state/editor-tab-pane))
+
+(defn get-active-repl []
+  (get @state/output-area-to-repl-map (get-active-output-area)))
+
+;(defn update-doc-window [_]  
+;  (let [ta             (get-active-text-area)
+;        pos            (.getCaretPosition (get-active-text-area))
+;        start          (Utilities/getWordStart ta pos)
+;        end            (Utilities/getWordEnd ta pos)
+;        word           (.getText ta start (- end start))
+;        preceding-char (when (> start 0)
+;                         (.getText ta (dec start) 1))
+;        next-char      (try 
+;                         (.getText ta end 1))
+;        update-fn      (fn [word]
+;                         (when (and word (> (count word) 0))
+;                           (seesaw/config! @state/doc-window :text "")
+;                           (when-let [repl (get-active-repl)]
+;                             (try 
+;                               (repl/eval-and-display (str "(with-out-str (clojure.repl/doc " word "))")
+;                                                         repl @state/doc-window)
+;                               (catch Exception e (.printStackTrace e))))))]
+;    (if (= preceding-char "(")
+;      (if (= next-char "!")
+;        (update-fn (str word "!"))
+;        (update-fn word))
+;      (if (= preceding-char "/")
+;        (let [e (- start 2)
+;              s (Utilities/getWordStart ta e)
+;              preceding-word (.getText ta s (- e s -1))]
+;          (update-fn (str preceding-word "/" word)))
+;        (update-fn word)))))
 
 (defn load-file-into-editor
   [file]
@@ -153,8 +190,11 @@
     (swap! state/editor-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
     (.setSelectedIndex @state/editor-tab-pane (.indexOfComponent @state/editor-tab-pane scroll-pane))
     (seesaw/listen text-area
-                   #{:remove-update :insert-update}
-                   (fn [_] (when label (update-tab-dirty-status text-area label file-name))))
+      #{:remove-update :insert-update}
+      (fn [_] (when label (update-tab-dirty-status text-area label file-name)))
+      ;:caret
+      ;(fn [_] (send doc-agent update-doc-window))
+      )
     (doto text-area
       (.requestFocusInWindow)
       (.setCaretPosition 0))
@@ -260,6 +300,7 @@
     (when-let [f (seesaw/show! (if default-font 
                                  (font/selector default-font)
                                  (font/selector)))]
+      (.setFont @state/doc-window f)
       (prefs/set-default-font f)
       (doseq [i (range (.getTabCount @state/editor-tab-pane))]
         (let [component (.getComponentAt @state/editor-tab-pane i)
@@ -293,7 +334,7 @@
         (let [output-area  (get-active-output-area)
               project-repl (get @state/output-area-to-repl-map output-area)]
           (when (and output-area project-repl)
-            (repl/evaluate-code-in-repl project-repl (str "(ns " ns ")") output-area true)))))))
+            (repl/update-ns ns output-area)))))))
   
 ;; Menu 
 
@@ -313,10 +354,11 @@
                                                    :items [(seesaw/menu-item :text "Editor Font"
                                                                              :listen [:action (fn [_] (update-default-editor-font))])
                                                            (seesaw/checkbox-menu-item :text "Show full stacktraces"
+                                                                                      :selected? true
                                                                                       :listen [:action (fn [e]
                                                                                                          (if (seesaw/selection e)
-                                                                                                           (repl/set-full-stacktraces-in-repl true)
-                                                                                                           (repl/set-full-stacktraces-in-repl false)))])])
+                                                                                                           (reset! repl/set-full-stacktraces-in-repl true)
+                                                                                                           (reset! repl/set-full-stacktraces-in-repl false)))])])
                                  (seesaw/menu-item :text "Quit"
                                                    :listen [:action (fn [_] (quit))])])
                    (seesaw/menu :text "Project"
@@ -392,17 +434,6 @@
         end   (get-end-of-form text-area pos)]
     {:start start :end end}))
   
-;; arrggh, cut and paste code. TODO tidy up please.
-  
-(defn evaluate-selected []
-  "Evaluate top level form relative to caret position"
-  (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
-    (when-let [output-area (get-active-output-area)]
-      (when-let [repl (get @state/output-area-to-repl-map output-area)]
-        (let [text-area   (.getTextArea selected-pane)
-              code        (.getSelectedText text-area)]
-          (repl/evaluate-code-in-repl repl code output-area true))))))  
-        
 (defn select-form []
   "Evaluate top level form relative to caret position"
   (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
@@ -411,6 +442,15 @@
           form        (.getText text-area start (- end start))]
       (when form
         (.select text-area start end)))))
+
+(defn evaluate-selected 
+  "Evaluate top level form relative to caret position"
+  [output-area] 
+  (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
+    (when-let [project-repl (get @state/output-area-to-repl-map output-area)]
+      (let [text-area   (.getTextArea selected-pane)
+            code        (.getSelectedText text-area)]
+        (repl/eval-and-display code project-repl output-area)))))
 
 (defn select-and-evaluate-form []
   (select-form)
@@ -421,7 +461,6 @@
     (when-let [output-area (get-active-output-area)]
       (when-let [r (get @state/output-area-to-repl-map output-area)]
         (.append output-area "\nEvaluating file...\n")
-        (repl/evaluate-code-in-repl r (.getText (.getTextArea selected-pane)) output-area true)
         (.append output-area "\nDone.\n")))))
 
 (defn search 

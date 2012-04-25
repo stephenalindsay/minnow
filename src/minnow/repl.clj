@@ -64,3 +64,13 @@
           (throw (RuntimeException. "Took too long to start ack server"))))
       (throw (RuntimeException. "No clojure jar in classpath.")))))
 
+(defn evaluate-code-in-repl
+  [project-repl code]
+  (let [resp (apply merge (nrepl/message 
+                            (:client project-repl)
+                            {:op :eval
+                             :code code
+                             :session (:session project-repl)}))]
+    resp))
+  
+  

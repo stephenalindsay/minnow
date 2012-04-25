@@ -27,30 +27,11 @@
     [java.io File IOException]
     [java.awt.event KeyEvent InputEvent]))
 
+(declare eval-and-display)
+
 (def running-repls (atom []))
 
-(defn set-full-stacktraces-in-repl
-  [b]
-  (doseq [r @running-repls]
-    ;(evaluate-code-in-repl r (str "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* " b ")") (StringBuilder.))))
-  ))
-
-(defn next-available-port
-  [start-port n]
-  (let [ss (try
-             (ServerSocket. start-port)
-             (catch IOException, ioe (println "Port " start-port " unavailable")))]
-    (if ss
-      (do
-        (.setReuseAddress ss true)
-        (.close ss)
-        start-port)
-      (when (> n 0)
-        (recur (inc start-port) (dec n))))))
-
-(defn new-repl-idx
-  [idx roll-amount item-count]
-  (min (- item-count 1) (max 0 (+ idx roll-amount))))
+(def set-full-stacktraces-in-repl (atom true))
 
 (defn roll-repl-history
   [history input-area roll-amount]
@@ -68,38 +49,40 @@
                               :idx (inc idx))
                        previous)))))
 
-(defn evaluate-code-in-repl
-  ([project-repl code output-area]
-    (evaluate-code-in-repl project-repl code output-area true))
-  ([project-repl code output-area verbose]
-    (future
-      (doseq [m (nrepl/message (:client project-repl)
-                               {:op :eval
-                                :code code
-                                :session (:session project-repl)})]
-        (println m)
-        (let [{:keys [out err ns value ex root-ex]} m]
-          (when err
-            (.append output-area (format "\n%s" err)))
-          (when ex 
-            (future 
-              (evaluate-code-in-repl project-repl "(clojure.stacktrace/e)" output-area)))
-          (when verbose
-            (when out
-              (.append output-area (format "\n%s" out)))
-            (when value
-              (.append output-area (format "\n%s => %s\n%s" ns code value))))
-          (.setCaretPosition output-area (-> output-area .getDocument .getLength)))))))
+(defn show-stacktrace 
+  [project-repl output-area]
+  (let [{:keys [out]} (repl/evaluate-code-in-repl project-repl "(clojure.stacktrace/e)")]
+    (when out
+      (.append output-area (format "\n%s" out)))))
+
+(defn update-repl-output
+  [message code project-repl output-area]
+  (println "message : " message)
+  (let [{:keys [out err ns value ex root-ex]} message]
+    (when value
+      (.append output-area (format "\n%s => %s\n%s" ns code value)))
+    (when err
+      (.append output-area (format "\n%s" err)))
+    (when out
+      (.append output-area (format "\n%s" out)))
+    (when (and ex @set-full-stacktraces-in-repl)
+      (show-stacktrace project-repl output-area))    
+    (.setCaretPosition output-area (-> output-area .getDocument .getLength))))
+
+(defn eval-and-display
+  [code project-repl output-area]
+  (let [resp (repl/evaluate-code-in-repl project-repl code)]
+    (update-repl-output resp code project-repl output-area)))
 
 (defn evaluate-repl-input
   [repl input-area output-area history]
-  (future
+  ;(future
     (let [input (.getText input-area)]      
       (update-repl-history! input history)
-      (evaluate-code-in-repl repl input output-area)
+      (eval-and-display input repl output-area)
       (doto input-area
         (.requestFocusInWindow)
-        (.selectAll)))))
+        (.selectAll))))
 
 (defn repl-area-listener
   [event repl input-area output-area history]
@@ -109,6 +92,10 @@
       KeyEvent/VK_UP (roll-repl-history history input-area -1)
       KeyEvent/VK_DOWN (roll-repl-history history input-area 1)
       nil)))
+
+(defn update-ns
+  [ns project-repl output-area]
+  (eval-and-display (str "(ns " ns ")") project-repl output-area))
 
 (defn start-project-repl
   [project-dir]
@@ -137,11 +124,9 @@
           (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane repl-area)))
         (.setText output-area "user => ")
         (.requestFocusInWindow input-area)
-        ;(evaluate-code-in-repl project-repl 
-        ;  "(require 'clojure.tools.nrepl) (set! clojure.tools.nrepl/*print-detail-on-error* true)" output-area false)
         (when main-ns
-          (evaluate-code-in-repl project-repl (str "(ns " main-ns ")") output-area true)
-          (evaluate-code-in-repl project-repl "(require 'clojure.stacktrace)" output-area true))      
+          (update-ns main-ns project-repl output-area))
+        (repl/evaluate-code-in-repl project-repl "(require 'clojure.stacktrace)")
         project-repl)
       (catch Exception e
         (.printStackTrace e)
