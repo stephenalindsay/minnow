@@ -17,8 +17,7 @@
          (is (= 2 (find-open-paren "  {this is a long thing" 15)))
          (is (= 6 (find-open-paren "{this (is a long thing" 15)))
          (is (= 2 (find-open-paren "  {this (is a) long thing" 15)))
-         (is (= 2 (find-open-paren "  {this \"(is a\" long thing" 15)))                                       
-                                       )
+         (is (= 2 (find-open-paren "  {this \"(is a\" long thing" 15)))                                       )
 
 (def calc-tests 
   [

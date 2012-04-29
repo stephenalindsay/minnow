@@ -280,7 +280,7 @@
       (when-let [f (chooser/choose-file)]
         (let [path (.getPath f)]
           (prefs/set-lein-path path)
-          path)))))
+          path)))))leinlein
 
 (defn new-project []
   (when-let [lein-path (get-lein-path)]
@@ -457,10 +457,11 @@
   (evaluate-selected))
 
 (defn evaluate-file []
-  (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
+  (when-let [text-area (get-active-text-area)]
     (when-let [output-area (get-active-output-area)]
-      (when-let [r (get @state/output-area-to-repl-map output-area)]
+      (when-let [project-repl (get @state/output-area-to-repl-map output-area)]
         (.append output-area "\nEvaluating file...\n")
+        (repl/eval-and-display (.getText text-area) project-repl output-area)
         (.append output-area "\nDone.\n")))))
 
 (defn search 

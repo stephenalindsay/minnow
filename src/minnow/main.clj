@@ -22,32 +22,35 @@
     [minnow.ui.logging :as logging]
     [minnow.ui.repl :as repl])
   (:import
-    [java.io File]
-    clojure.tools.nrepl.transport.Transport))
+    [java.io File]))
 
 (defn add-shutdown-hook []
   (.addShutdownHook (Runtime/getRuntime)
     (proxy [Thread] []
-      (run [] 
-           (repl/shutdown-running-repls)))))
+      (run [] (repl/shutdown-running-repls)))))
 
-(defn check-project
+(defn valid-project-path?
   [project-path]
-  (let [f (File. project-path)]
-    (when (and
-            (.exists f)
-            (.isDirectory f)
-            (not (filter #(= % f) (.listFiles @state/virtual-dir)))
-            (filter #(= % (File. "project.clj")) (.listFiles f)))
-      (ui/add-path-to-virtual-dir f))))
+  (let [dir  (File. project-path)
+        lein (File. dir "project.clj")
+        pom  (File. dir "pom.xml")]
+    (and
+      (.exists dir)
+      (.isDirectory dir)
+      (not (seq (filter #(= % dir) (.listFiles @state/virtual-dir))))
+      (or
+        (.exists lein)
+        (.exists pom)))))
 
 (defn run 
   [project-path]
   (add-shutdown-hook)
   (logging/setup-logging)
   (ui/gui)
-  (when project-path
-    (check-project project-path)))
+  (when (and
+          project-path
+          (valid-project-path? project-path))
+    (ui/add-path-to-virtual-dir (File. project-path))))
     
 (defn repl-run []
   (reset! state/standalone false)
@@ -57,5 +60,6 @@
   ([]
    (-main nil))
   ([project-path]
-   (run project-path)))  
+    (println "Project path : " project-path)
+    (run project-path)))
 
