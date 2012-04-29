@@ -280,7 +280,7 @@
       (when-let [f (chooser/choose-file)]
         (let [path (.getPath f)]
           (prefs/set-lein-path path)
-          path)))))leinlein
+          path)))))
 
 (defn new-project []
   (when-let [lein-path (get-lein-path)]
