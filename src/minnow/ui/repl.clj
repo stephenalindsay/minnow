@@ -113,25 +113,25 @@
                         :content repl-area
                         :tip (str (.getAbsolutePath project-dir) " : " (:port project-repl))}
           main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
-        (swap! running-repls conj project-repl)
-        (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
-        (.setRightComponent @state/main-split @state/output-tab-pane)          
-        (.setDividerLocation @state/main-split 0.65)
-        (swap! state/output-area-to-repl-map assoc output-area project-repl)
-        (seesaw/listen input-area :key-pressed (fn [event]
-                                                 (repl-area-listener event project-repl input-area output-area history)))
-        (when @state/output-tab-pane
-          (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane repl-area)))
-        (.setText output-area "user => ")
-        (.requestFocusInWindow input-area)
-        (when main-ns
-          (update-ns main-ns project-repl output-area))
-        (repl/evaluate-code-in-repl project-repl "(require 'clojure.stacktrace)")
-        project-repl)
-      (catch Exception e
-        (.printStackTrace e)
-        (seesaw/alert
-          (str "Couldn't start repl, see exception for details\n\n" (.getMessage e))))))
+      (swap! running-repls conj project-repl)
+      (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
+      (.setRightComponent @state/main-split @state/output-tab-pane)          
+      (.setDividerLocation @state/main-split 0.65)
+      (swap! state/output-area-to-repl-map assoc output-area project-repl)
+      (seesaw/listen input-area :key-pressed (fn [event]
+                                               (repl-area-listener event project-repl input-area output-area history)))
+      (when @state/output-tab-pane
+        (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane repl-area)))
+      (.setText output-area "user => ")
+      (.requestFocusInWindow input-area)
+      (when main-ns
+        (update-ns main-ns project-repl output-area))
+      (repl/evaluate-code-in-repl project-repl "(require 'clojure.stacktrace)")
+      project-repl)
+    (catch Exception e
+      (.printStackTrace e)
+      (seesaw/alert
+        (str "Couldn't start repl, see exception for details\n\n" (.getMessage e))))))
 
 (defn shutdown-running-repls []
   (swap! running-repls #(doseq [r %]

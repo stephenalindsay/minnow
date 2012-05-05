@@ -60,7 +60,7 @@
                                        (update-tree tree root))]))
 
 (defn load-project-tree-pref []
-  (if-let [projects (prefs/get-pref "project-list")]
+  (if-let [projects (prefs/get "project-list")]
     (into [] (map #(java.io.File. %) projects))
     []))
 

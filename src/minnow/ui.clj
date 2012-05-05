@@ -21,6 +21,7 @@
             [seesaw.chooser :as chooser]
             [seesaw.keymap :as keymap]
             [seesaw.swingx :as swingx]
+            [seesaw.event :as event]
             [seesaw.mig :as mig]
             [minnow.indent :as indent]
             [minnow.explorer :as explorer]
@@ -39,14 +40,12 @@
             [clojure.repl])
   (:import [java.awt Color Font Point Dimension]
            [java.util Date]
-           [javax.swing JLabel JViewport SwingUtilities ]
+           [javax.swing JLabel JViewport SwingUtilities JSplitPane]
            [javax.swing.text Utilities]
            [org.jdesktop.swingx JXCollapsiblePane]
            [java.io File]
            [org.fife.ui.rsyntaxtextarea RSyntaxTextArea TextEditorPane SyntaxConstants Token FileLocation]
            [org.fife.ui.rtextarea RTextScrollPane RTextArea SearchEngine SearchContext]))
-
-(def doc-agent (agent nil))
 
 (declare evaluate-file)
 (declare evaluate-selected)
@@ -99,7 +98,7 @@
   [file scroll-pane]
   (swap! open-files (fn [files] (into [] (filter #(not= (.getPath file) %) files))))
   (swap! pane-to-file-map dissoc scroll-pane)
-  (prefs/set-open-files @open-files)
+  (prefs/set "open-files" @open-files)
   (close-pane scroll-pane @state/editor-tab-pane))
 
 (defn get-active-repl []
@@ -191,10 +190,7 @@
     (.setSelectedIndex @state/editor-tab-pane (.indexOfComponent @state/editor-tab-pane scroll-pane))
     (seesaw/listen text-area
       #{:remove-update :insert-update}
-      (fn [_] (when label (update-tab-dirty-status text-area label file-name)))
-      ;:caret
-      ;(fn [_] (send doc-agent update-doc-window))
-      )
+      (fn [_] (when label (update-tab-dirty-status text-area label file-name))))
     (doto text-area
       (.requestFocusInWindow)
       (.setCaretPosition 0))
@@ -203,7 +199,7 @@
                           (if-not (some #{path} files)
                             (conj files path)
                             files))))
-    (prefs/set-open-files @open-files)))
+    (prefs/set "open-files" @open-files)))
 
 ;; Project filters - used for controlling what files are visible in file picker.
 
@@ -218,10 +214,10 @@
                                           (.isDirectory %))))
 
 (defn save-project-tree-pref []
-  (prefs/set-project-list (into [] (map #(.getPath %) (.listFiles @state/virtual-dir)))))
+  (prefs/set "project-list" (into [] (map #(.getPath %) (.listFiles @state/virtual-dir)))))
 
 (defn load-project-tree-pref []
-  (if-let [projects (prefs/get-project-list)]
+  (if-let [projects (prefs/get "project-list")]
     (into [] (map #(java.io.File. %) projects))
     []))
 
@@ -240,14 +236,14 @@
   [project-file])
 
 (defn open-project []
-  (let [previous-open-dir (prefs/get-last-open-dir)    
+  (let [previous-open-dir (prefs/get "last-open-dir")    
         project-file      (chooser/choose-file 
                             :filters [maven-project-filter lein-project-filter]
                             :dir (if previous-open-dir
                                    previous-open-dir
                                    (System/getProperty "user.home")))]
     (when project-file
-      (prefs/set-last-open-dir (.getParent (.getParentFile project-file)))
+      (prefs/set "last-open-dir" (.getParent (.getParentFile project-file)))
       (condp = (.getName project-file)
         "project.clj" (open-leiningen-project project-file)
         "pom.xml" (open-maven-project project-file)
@@ -273,18 +269,18 @@
       (.setCaretPosition text-area (min caret-pos (count new-content))))))
 
 (defn get-lein-path []
-  (if-let [lein-path (prefs/get-lein-path)]
+  (if-let [lein-path (prefs/get "lein-path")]
     lein-path
     (do
       (seesaw/alert :text "Leiningen path not set, please set path to leiningen script.")
       (when-let [f (chooser/choose-file)]
         (let [path (.getPath f)]
-          (prefs/set-lein-path path)
+          (prefs/set "lein-path" path)
           path)))))
 
 (defn new-project []
   (when-let [lein-path (get-lein-path)]
-    (let [previous-open-dir (prefs/get-last-open-dir)]
+    (let [previous-open-dir (prefs/get "last-open-dir")]
       (if-let [project-dir  (chooser/choose-file
                               :dir (if previous-open-dir
                                      previous-open-dir
@@ -292,7 +288,7 @@
         (let [parent  (.getParent project-dir)
               name    (.getName project-dir)
               resp    (lein/new-project lein-path parent name)]
-          (prefs/set-last-open-dir (.getParent (.getParentFile project-dir)))
+          (prefs/set "last-open-dir" (.getParent (.getParentFile project-dir)))
           (open-leiningen-project (io/file project-dir "project.clj")))))))
 
 (defn update-default-editor-font [] 
@@ -300,7 +296,6 @@
     (when-let [f (seesaw/show! (if default-font 
                                  (font/selector default-font)
                                  (font/selector)))]
-      (.setFont @state/doc-window f)
       (prefs/set-default-font f)
       (doseq [i (range (.getTabCount @state/editor-tab-pane))]
         (let [component (.getComponentAt @state/editor-tab-pane i)
@@ -465,43 +460,41 @@
         (.append output-area "\nDone.\n")))))
 
 (defn search 
-  [textbox forward wrap regex match-case]
-  (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
-    (when-let [text (.getText textbox)] 
-      (if (> (count text) 0)
-        (let [text-area   (.getTextArea selected-pane)
-              current-pos (.getCaretPosition text-area)
-              sc          (doto (SearchContext.)
-                            (.setSearchForward forward)
-                            (.setMatchCase match-case)
-                            (.setWholeWord false)
-                            (.setRegularExpression regex)
-                            (.setSearchFor text))]
-          (if (SearchEngine/find text-area sc)
-            true
-            (when wrap
-              (.setCaretPosition text-area 1)
-              (if (SearchEngine/find text-area sc)
-                true
-                (.setCaretPosition text-area current-pos)))))))))
+  ([textbox forward]
+    (search textbox forward true true true))
+  ([textbox forward wrap regex match-case]
+    (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
+      (when-let [text (.getText textbox)] 
+        (if (> (count text) 0)
+          (let [text-area   (.getTextArea selected-pane)
+                current-pos (.getCaretPosition text-area)
+                sc          (doto (SearchContext.)
+                              (.setSearchForward forward)
+                              (.setMatchCase match-case)
+                              (.setWholeWord false)
+                              (.setRegularExpression regex)
+                              (.setSearchFor text))]
+            (if (SearchEngine/find text-area sc)
+              true
+              (when wrap
+                (.setCaretPosition text-area 1)
+                (if (SearchEngine/find text-area sc)
+                  true
+                  (.setCaretPosition text-area current-pos))))))))))
 
 (defn editor-panel []
-  (let [find        (seesaw/text :columns 15)
-        replace     (seesaw/text :columns 15)
+  (let [find        (seesaw/text :columns 10)
+        replace     (seesaw/text :columns 10)
         reverse     (seesaw/checkbox :text "Reverse")        
-        wrap        (seesaw/checkbox :text "Wrap" :selected? true)        
-        regex       (seesaw/checkbox :text "Regex")
-        match-case  (seesaw/checkbox :text "Match Case")
+        ;wrap        (seesaw/checkbox :text "Wrap" :selected? true)        
+        ;regex       (seesaw/checkbox :text "Regex")
+        ;match-case  (seesaw/checkbox :text "Match Case")
         replace-btn (seesaw/button :text "Replace"
                                    :enabled? false)        
         _ (seesaw/config! replace-btn :listen [:action (fn [_] 
                                                          (when-let [text-area (get-active-text-area)]
                                                            (.replaceSelection text-area (.getText replace))
-                                                           (if (search find
-                                                                       (not (.isSelected reverse)) 
-                                                                       (.isSelected wrap)
-                                                                       (.isSelected regex)
-                                                                       (.isSelected match-case))
+                                                           (if (search find (not (.isSelected reverse)))
                                                              (.setEnabled replace-btn true)
                                                              (.setEnabled replace-btn false))))])
         toolbar     (seesaw/toolbar :floatable? false
@@ -509,25 +502,18 @@
                                    :items [find
                                            (seesaw/button :text "Find"
                                                           :listen [:action (fn [_]
-                                                                             (if (search find
-                                                                                         (not (.isSelected reverse))
-                                                                                         (.isSelected wrap)
-                                                                                         (.isSelected regex)
-                                                                                         (.isSelected match-case))
+                                                                             (if (search find (not (.isSelected reverse)))
                                                                                (.setEnabled replace-btn true)
                                                                                (.setEnabled replace-btn false)))])
                                            replace 
                                            replace-btn
-                                           reverse
-                                           wrap
-                                           regex
-                                           match-case])
+                                           reverse])
         collapsible (doto (JXCollapsiblePane.)
                       (.add toolbar)
                       (.setAnimated false)
                       (.setCollapsed true))
         panel       (mig/mig-panel
-                      :constraints ["insets 0 0 0 0" "" ""]
+                      :constraints ["insets 0 0 0 0" "fill" ""]
                       :items [[@state/editor-tab-pane "height :3000, width :3000, wrap"]
                               [collapsible ""]])]
     (keymap/map-key panel "control F" (fn [_] 
@@ -536,11 +522,7 @@
                                         (doto find
                                           (.requestFocusInWindow)
                                           (.selectAll))))
-    (keymap/map-key find "ENTER"  (fn [_] (if (search find
-                                                      (not (.isSelected reverse))
-                                                      (.isSelected wrap)
-                                                      (.isSelected regex)
-                                                      (.isSelected match-case))
+    (keymap/map-key find "ENTER"  (fn [_] (if (search find (not (.isSelected reverse)))
                                             (.setEnabled replace-btn true)
                                             (.setEnabled replace-btn false))))
     (keymap/map-key toolbar "ESCAPE" (fn [_]
@@ -551,17 +533,8 @@
     (.setMinimumSize panel (Dimension. 100 100))
     panel))
   
-(defn frame-content-1 []
-  (seesaw/left-right-split
-    (seesaw/scrollable
-      @state/project-tree)
-    (seesaw/top-bottom-split
-      (editor-panel)
-      @state/output-tab-pane
-      :divider-location 3/5)
-    :divider-location 200))
-
-(defn frame-content-2 []
+(defn frame-content []
+  (.setMinimumSize @state/editor-tab-pane (Dimension.))
   (.setMinimumSize @state/output-tab-pane (Dimension.))
   (reset! 
     state/main-split (seesaw/left-right-split
@@ -608,22 +581,15 @@
                         :height 800
                         :width 1024
                         :menubar @state/main-menu
-                        :content (frame-content-2))     
-        n (atom frame-content-1)]
-    (keymap/map-key f "shift control R" (fn [_] 
-                                          (repl-project-select)))
-    (keymap/map-key f "shift control A" (fn [_] 
-                                          (seesaw/config! f :content ((swap! n (fn [p] 
-                                                                                 (if (= p frame-content-1)
-                                                                                   frame-content-2
-                                                                                   frame-content-1)))))))
+                        :content (frame-content))]
+    (keymap/map-key f "shift control R" (fn [_] (repl-project-select)))
     f))
 
 (defn set-global-keybindings
   [frame]
   (keymap/map-key 
     frame "control E" (fn [e] 
-                        (if-let [scrollpane (.getSelectedComponent @state/editor-tab-pane)]
+                        (when-let [scrollpane (.getSelectedComponent @state/editor-tab-pane)]
                           (.requestFocusInWindow (.getTextArea scrollpane)))))
   (keymap/map-key 
     frame "control R" (fn [e] 
@@ -639,7 +605,7 @@
                              root)))
 
 (defn open-previously-open-files []
-  (reset! open-files (into [] (prefs/get-open-files)))
+  (reset! open-files (into [] (prefs/get "open-files")))
   (doseq [file @open-files]
     (load-file-into-editor (File. file))))
 
@@ -682,4 +648,3 @@
   (seesaw/native!)
   (init-ui-state)
   (seesaw/show! @state/main-frame))
-
