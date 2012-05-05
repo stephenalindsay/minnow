@@ -104,34 +104,35 @@
 (defn get-active-repl []
   (get @state/output-area-to-repl-map (get-active-output-area)))
 
-;(defn update-doc-window [_]  
-;  (let [ta             (get-active-text-area)
-;        pos            (.getCaretPosition (get-active-text-area))
-;        start          (Utilities/getWordStart ta pos)
-;        end            (Utilities/getWordEnd ta pos)
-;        word           (.getText ta start (- end start))
-;        preceding-char (when (> start 0)
-;                         (.getText ta (dec start) 1))
-;        next-char      (try 
-;                         (.getText ta end 1))
-;        update-fn      (fn [word]
-;                         (when (and word (> (count word) 0))
-;                           (seesaw/config! @state/doc-window :text "")
-;                           (when-let [repl (get-active-repl)]
-;                             (try 
-;                               (repl/eval-and-display (str "(with-out-str (clojure.repl/doc " word "))")
-;                                                         repl @state/doc-window)
-;                               (catch Exception e (.printStackTrace e))))))]
-;    (if (= preceding-char "(")
-;      (if (= next-char "!")
-;        (update-fn (str word "!"))
-;        (update-fn word))
-;      (if (= preceding-char "/")
-;        (let [e (- start 2)
-;              s (Utilities/getWordStart ta e)
-;              preceding-word (.getText ta s (- e s -1))]
-;          (update-fn (str preceding-word "/" word)))
-;        (update-fn word)))))
+(defn show-doc []  
+  (let [ta             (get-active-text-area)
+        output-area    (get-active-output-area)
+        pos            (.getCaretPosition (get-active-text-area))
+        start          (Utilities/getWordStart ta pos)
+        end            (Utilities/getWordEnd ta pos)
+        word           (.getText ta start (- end start))
+        preceding-char (when (> start 0)
+                         (.getText ta (dec start) 1))
+        next-char      (try 
+                         (.getText ta end 1))
+        update-fn      (fn [word]
+                         (when (and word (> (count word) 0))
+                           (when-let [project-repl (get-active-repl)]
+                             (try 
+                               (repl/eval-and-display (format "(clojure.repl/doc %s)" word) project-repl output-area)
+                               (catch Exception e 
+                                 (println (.getMessage e))
+                                 (.printStackTrace e))))))]
+    (if (= preceding-char "(")
+      (if (= next-char "!")
+        (update-fn (str word "!"))
+        (update-fn word))
+      (if (= preceding-char "/")
+        (let [e (- start 2)
+              s (Utilities/getWordStart ta e)
+              preceding-word (.getText ta s (- e s -1))]
+          (update-fn (str preceding-word "/" word)))
+        (update-fn word)))))
 
 (defn load-file-into-editor
   [file]
@@ -516,6 +517,7 @@
                       :constraints ["insets 0 0 0 0" "fill" ""]
                       :items [[@state/editor-tab-pane "height :3000, width :3000, wrap"]
                               [collapsible ""]])]
+    (keymap/map-key panel "alt D" (fn [_] (show-doc)))
     (keymap/map-key panel "control F" (fn [_] 
                                         (.setEnabled replace-btn false)
                                         (.setCollapsed collapsible false)
