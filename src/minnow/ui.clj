@@ -326,11 +326,11 @@
 (defn set-namespace-to-active-file []
   (when-let [text-area (get-active-text-area)]
     (when (.endsWith (.getFileName text-area) ".clj")
-      (when-let [ns (get-namespace (.replace (.getText text-area) (System/getProperty "line.separator") " "))]
+      (when-let [ns (get-namespace (.getText text-area))]
         (let [output-area  (get-active-output-area)
               project-repl (get @state/output-area-to-repl-map output-area)]
           (when (and output-area project-repl)
-            (repl/update-ns ns output-area)))))))
+            (repl/update-ns ns project-repl output-area)))))))
   
 ;; Menu 
 
@@ -555,28 +555,29 @@
     (repl/start-project-repl project-dir)))
 
 (defn repl-project-select []
-  (let [project-list (.listFiles @state/virtual-dir)
-        lb           (seesaw/listbox
-                       :model project-list
-                       :renderer (fn [renderer info]
-                                   (let [v (:value info)]
-                                     (seesaw/config! renderer :text (.getName v)))))
-        f            (seesaw/frame 
-                       :title "Select Project"
-                       :height 300
-                       :width 300)
-        p            (seesaw/border-panel
-                       :center (seesaw/scrollable lb)
-                       :south (seesaw/button :text "Cancel"
-                                             :listen [:action (fn [e] 
-                                                                (seesaw/hide! f))]))]
-    (seesaw/listen lb :mouse-pressed (fn [e]
-                                       (when (== 2 (.getClickCount e))
-                                         (start-repl-from-list-selection lb f))))
-    (keymap/map-key f "ENTER" (fn [e] (start-repl-from-list-selection lb f)))
-    (keymap/map-key f "ESCAPE" (fn [e] (seesaw/hide! f)))
-    (.setContentPane f p)
-    (seesaw/show! f)))
+  (let [project-list (.listFiles @state/virtual-dir)]
+    (when (> (count project-list) 0)
+      (let [lb           (seesaw/listbox
+                           :model project-list
+                           :renderer (fn [renderer info]
+                                       (let [v (:value info)]
+                                         (seesaw/config! renderer :text (.getName v)))))
+            f            (seesaw/frame 
+                           :title "Start REPL for project:"
+                           :height 300
+                           :width 300)
+            p            (seesaw/border-panel
+                           :center (seesaw/scrollable lb)
+                           :south (seesaw/button :text "Cancel"
+                                    :listen [:action (fn [e] 
+                                                       (seesaw/hide! f))]))]
+        (seesaw/listen lb :mouse-pressed (fn [e]
+                                           (when (== 2 (.getClickCount e))
+                                             (start-repl-from-list-selection lb f))))
+        (keymap/map-key f "ENTER" (fn [e] (start-repl-from-list-selection lb f)))
+        (keymap/map-key f "ESCAPE" (fn [e] (seesaw/hide! f)))
+        (.setContentPane f p)
+        (seesaw/show! f)))))
 
 (defn main-frame [] 
   (let [f (seesaw/frame :title "Minnow"
@@ -644,7 +645,10 @@
   (seesaw/listen @state/editor-tab-pane :state-changed (fn [e] (check-for-fs-update)))
   (reset! state/main-frame (main-frame))
   (open-previously-open-files)
-  (set-global-keybindings @state/main-frame))
+  (set-global-keybindings @state/main-frame)
+  (future
+    (Thread/sleep 1000)
+    (repl-project-select)))
 
 (defn gui []
   (seesaw/native!)
