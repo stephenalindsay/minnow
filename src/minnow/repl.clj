@@ -66,11 +66,12 @@
 
 (defn evaluate-code-in-repl
   [project-repl code]
-  (let [resp (apply merge (nrepl/message 
-                            (:client project-repl)
-                            {:op :eval
-                             :code code
-                             :session (:session project-repl)}))]
-    resp))
+  (let [resp (nrepl/message
+               (:client project-repl)
+               {:op :eval
+                :code code
+                :session (:session project-repl)})
+        out   (apply str (map :out resp))]
+    (assoc (apply merge resp) :out out)))
   
   
