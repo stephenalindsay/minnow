@@ -76,13 +76,11 @@
 
 (defn evaluate-repl-input
   [repl input-area output-area history]
-  ;(future
-    (let [input (.getText input-area)]      
-      (update-repl-history! input history)
-      (eval-and-display input repl output-area)
-      (doto input-area
-        (.requestFocusInWindow)
-        (.selectAll))))
+  (let [input (.getText input-area)]      
+    (println  "sending : " input)
+    (update-repl-history! input history)
+    (future
+      (eval-and-display input repl output-area))))
 
 (defn repl-area-listener
   [event repl input-area output-area history]
