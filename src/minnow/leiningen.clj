@@ -38,5 +38,8 @@
   [lein-path parent-dir name]
   (println lein-path parent-dir name)
   (shell/sh lein-path "new" name :dir parent-dir)
-  (shell/sh lein-path "deps"))
+  (shell/sh lein-path "deps" :dir (str 
+                                    parent-dir 
+                                    (java.io.File/separator)
+                                    name)))
 
