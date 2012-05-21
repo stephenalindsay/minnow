@@ -20,8 +20,10 @@
   (:import 
     [java.awt Font]
     [java.io File]
+    [java.awt Color Font Point Dimension]
+    [javax.swing JLabel JViewport SwingUtilities JSplitPane]
     [org.fife.ui.rsyntaxtextarea RSyntaxTextArea TextEditorPane FileLocation SyntaxConstants]
-    [org.fife.ui.rtextarea RTextArea]))
+    [org.fife.ui.rtextarea RTextScrollPane RTextArea SearchEngine SearchContext]))
 
 (defn get-highlighting
   [file]
@@ -71,3 +73,48 @@
                                  true 
                                  (FileLocation/create file))))
 
+(defn scroll-caret-to-centre
+  "From: http://www.camick.com/java/source/RXTextUtilities.java"
+  [text-area]
+  (if-let [view-port (SwingUtilities/getAncestorOfClass JViewport text-area)]
+    (let [rect     (.modelToView text-area (.getCaretPosition text-area))
+          extent-h (.height (.getExtentSize view-port))
+          view-h   (.height (.getViewSize view-port))
+          y        (max 0 (- (.y rect) (/ extent-h 2)))
+          y        (min y (- view-h extent-h))]
+      (.setViewPosition view-port (Point. 0 y)))))          
+
+(defn skip-to-next-def
+  [text-area forward] 
+  (when (SearchEngine/find text-area (doto (SearchContext.)
+                                       (.setSearchFor "^\\(")
+                                       (.setSearchForward forward)
+                                       (.setWholeWord false)
+                                       (.setMatchCase false)
+                                       (.setRegularExpression true)))
+    (scroll-caret-to-centre text-area)))
+
+(defn get-start-of-form
+  [text-area pos]
+  (if (> pos 1)
+    (let [text   (.getText text-area pos 2)]
+      (if (= text "\n(")
+        (+ 1 pos)
+        (recur text-area (dec pos))))
+    0))
+  
+(defn get-end-of-form
+  [text-area pos]
+  (if (> (.getLength (.getDocument text-area)) pos)
+    (let [text   (.getText text-area pos 2)]
+      (if (= text "\n(")
+        pos
+        (recur text-area (inc pos))))
+    (.getLength (.getDocument text-area))))
+  
+(defn get-current-form-bounds
+  [text-area]
+  (let [pos   (.getCaretPosition text-area)
+        start (get-start-of-form text-area pos)
+        end   (get-end-of-form text-area pos)]
+    {:start start :end end}))

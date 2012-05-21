@@ -31,7 +31,7 @@
 
 (def running-repls (atom []))
 
-(def set-full-stacktraces-in-repl (atom true))
+(def set-full-stacktraces (atom true))
 
 (defn roll-repl-history
   [history input-area roll-amount]
@@ -65,7 +65,7 @@
       (.append output-area (format "\n%s" err)))
     (when out
       (.append output-area (format "\n%s" out)))
-    (when (and ex @set-full-stacktraces-in-repl)
+    (when (and ex @set-full-stacktraces)
       (show-stacktrace project-repl output-area))    
     (.setCaretPosition output-area (-> output-area .getDocument .getLength))))
 

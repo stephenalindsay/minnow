@@ -38,19 +38,15 @@
             [fontselector.core :as font]
             [clojure.pprint :as pp]
             [clojure.repl])
-  (:import [java.awt Color Font Point Dimension]
-           [java.util Date]
-           [javax.swing JLabel JViewport SwingUtilities JSplitPane]
+  (:import [java.awt Dimension]
+           [javax.swing JLabel]
            [javax.swing.text Utilities]
            [org.jdesktop.swingx JXCollapsiblePane]
            [java.io File]
-           [org.fife.ui.rsyntaxtextarea RSyntaxTextArea TextEditorPane SyntaxConstants Token FileLocation]
-           [org.fife.ui.rtextarea RTextScrollPane RTextArea SearchEngine SearchContext]))
+           [org.fife.ui.rtextarea RTextScrollPane SearchEngine SearchContext]))
 
 (declare evaluate-file)
-(declare evaluate-selected)
-(declare select-form)
-(declare select-and-evaluate-form)
+(declare evaluate-top-level-form)
 (declare get-active-output-area)
 (declare set-namespace-to-active-file)
 (declare get-active-text-area)
@@ -72,27 +68,6 @@
   (let [index (.indexOfComponent split-pane scroll-panel)]
     (when (not= -1 index)
       (.remove split-pane index))))
-
-(defn scroll-caret-to-centre
-  "From: http://www.camick.com/java/source/RXTextUtilities.java"
-  [text-area]
-  (if-let [view-port (SwingUtilities/getAncestorOfClass JViewport text-area)]
-    (let [rect     (.modelToView text-area (.getCaretPosition text-area))
-          extent-h (.height (.getExtentSize view-port))
-          view-h   (.height (.getViewSize view-port))
-          y        (max 0 (- (.y rect) (/ extent-h 2)))
-          y        (min y (- view-h extent-h))]
-      (.setViewPosition view-port (Point. 0 y)))))          
-
-(defn skip-to-next-def
-  [text-area forward] 
-  (when (SearchEngine/find text-area (doto (SearchContext.)
-                                       (.setSearchFor "^\\(")
-                                       (.setSearchForward forward)
-                                       (.setWholeWord false)
-                                       (.setMatchCase false)
-                                       (.setRegularExpression true)))
-    (scroll-caret-to-centre text-area)))
 
 (defn close-file
   [file scroll-pane]
@@ -157,18 +132,17 @@
                            (.setSelectedIndex tp new-idx))))]
     (swap! pane-to-file-map assoc scroll-pane {:file file
                                                :last-modified (.lastModified file)})
-    (keymap/map-key text-area "alt DOWN" (fn [_] (skip-to-next-def text-area true)))
-    (keymap/map-key text-area "alt UP" (fn [_] (skip-to-next-def text-area false)))    
-    (keymap/map-key text-area "control PAGE_UP" (fn [_] (tab-skip-fn -1)))                                                  
+    (keymap/map-key text-area "alt DOWN" (fn [_] (ta/skip-to-next-def text-area true)))
+    (keymap/map-key text-area "alt UP" (fn [_] (ta/skip-to-next-def text-area false)))    
+    (keymap/map-key text-area "control PAGE_UP" (fn [_] (tab-skip-fn -1)))                      
     (keymap/map-key text-area "control PAGE_DOWN" (fn [_] (tab-skip-fn 1)))
-    (keymap/map-key @state/main-frame 
-                    "shift control F" (fn [_] (evaluate-file)))
-    (keymap/map-key text-area "shift control E" (fn [_] (evaluate-selected)))    
-    (keymap/map-key text-area "shift control S" (fn [_] (select-and-evaluate-form)))    
+    (keymap/map-key @state/main-frame "shift control F" (fn [_] (evaluate-file)))
+    (keymap/map-key text-area "control ENTER" (fn [_] (evaluate-top-level-form)))
     (keymap/map-key text-area "control N" (fn [_] (set-namespace-to-active-file)))
     (keymap/map-key text-area "control S" (fn [_]
                                             (.save text-area)
-                                            (swap! pane-to-file-map assoc-in [scroll-pane :last-modified] (.lastModified file))
+                                            (swap! pane-to-file-map assoc-in 
+                                              [scroll-pane :last-modified] (.lastModified file))
                                             (update-tab-dirty-status text-area label file-name)))
     (keymap/map-key text-area "control W" (fn [_]
                                             (let [warning (fn [msg]
@@ -219,7 +193,7 @@
 
 (defn load-project-tree-pref []
   (if-let [projects (prefs/get "project-list")]
-    (into [] (map #(java.io.File. %) projects))
+    (into [] (map #(File. %) projects))
     []))
 
 (defn add-path-to-virtual-dir
@@ -341,52 +315,40 @@
       (reset! state/main-frame nil))
     (System/exit 0)))
 
+(defn menu-item
+  ([text f]
+    (seesaw/menu-item :text text :listen [:action (fn [_] (f))]))   
+  ([text mnemonic f]
+    (seesaw/menu-item :text text :mnemonic mnemonic :listen [:action (fn [_] (f))])))
+
 (defn main-menu []
-  (seesaw/menubar :items  
-                  [(seesaw/menu :text "Minnow"
-                                :mnemonic \M
-                                :items
-                                [(seesaw/menu      :text "Preferences"
-                                                   :items [(seesaw/menu-item :text "Editor Font"
-                                                                             :listen [:action (fn [_] (update-default-editor-font))])
-                                                           (seesaw/checkbox-menu-item :text "Show full stacktraces"
-                                                                                      :selected? true
-                                                                                      :listen [:action (fn [e]
-                                                                                                         (if (seesaw/selection e)
-                                                                                                           (reset! repl/set-full-stacktraces-in-repl true)
-                                                                                                           (reset! repl/set-full-stacktraces-in-repl false)))])])
-                                 (seesaw/menu-item :text "Quit"
-                                                   :listen [:action (fn [_] (quit))])])
-                   (seesaw/menu :text "Project"
-                                :mnemonic \P
-                                :items
-                                [(seesaw/menu-item :text "New"
-                                                   :listen [:action (fn [_] (new-project))])
-                                 (seesaw/menu-item :text "Open"
-                                                   :listen [:action (fn [_] (open-project))])])
-                   (seesaw/menu :text "Source"
-                                :mnemonic \S
-                                :items
-                                [(seesaw/menu-item :text "Evaluate File"
-                                                   :mnemonic \F
-                                                   :listen [:action (fn [_] (evaluate-file))])
-                                 (seesaw/menu-item :text "Evaluate Selected"
-                                                   :mnemonic \E
-                                                   :listen [:action (fn [_] (evaluate-selected))])                                
-                                 (seesaw/menu-item :text "Select Form"
-                                                   :mnemonic \S
-                                                   :listen [:action (fn [_] (select-form))])
-                                 (seesaw/menu-item :text "Select And Evaluate Form"
-                                                   :listen [:action (fn [_] (select-and-evaluate-form))])
-                                 (seesaw/menu-item :text "Set repl namespace to file"
-                                                   :mnemonic \N
-                                                   :listen [:action (fn [_] (set-namespace-to-active-file))])
-                                 (seesaw/menu-item :text "Re-indent Selection"
-                                                   :mnemonic \S
-                                                   :listen [:action (fn [_] (reindent-selection))])
-                                 (seesaw/menu-item :text "Re-indent File"
-                                                   :mnemonic \R
-                                                   :listen [:action (fn [_] (reindent-file))])])]))
+  (seesaw/menubar 
+    :items
+    [(seesaw/menu 
+       :text "Minnow"
+       :mnemonic \M
+       :items [(seesaw/menu 
+                 :text "Preferences"
+                 :items [(menu-item "Editor Font" update-default-editor-font)
+                         (seesaw/checkbox-menu-item 
+                           :text "Show full stacktraces"
+                           :selected? true 
+                           :listen [:action #(if (seesaw/selection %)
+                                               (reset! repl/set-full-stacktraces true)
+                                               (reset! repl/set-full-stacktraces false))])])
+               (menu-item "Quit" quit)])
+     (seesaw/menu 
+       :text "Project"
+       :mnemonic \P
+       :items [(menu-item "New" new-project)
+               (menu-item "Open" open-project)])
+     (seesaw/menu 
+       :text "Source"
+       :mnemonic \S
+       :items [(menu-item "Evaluate File" \F evaluate-file)
+               (menu-item "Set repl namespace to file" \N set-namespace-to-active-file)
+               (menu-item "Re-indent Selection" \S reindent-selection)
+               (menu-item "Re-indent File" \R reindent-file)])]))
 
 ;; Project tree functions
 
@@ -404,53 +366,12 @@
 (defn get-active-output-area []
   (when-let [tc (.getSelectedComponent @state/output-tab-pane)]
     (.getView (first (.getComponents (.getTopComponent tc))))))
-
-(defn get-start-of-form
-  [text-area pos]
-  (if (> pos 1)
-    (let [text   (.getText text-area pos 2)]
-      (if (= text "\n(")
-        (+ 1 pos)
-        (recur text-area (dec pos))))
-    0))
-  
-(defn get-end-of-form
-  [text-area pos]
-  (if (> (.getLength (.getDocument text-area)) pos)
-    (let [text   (.getText text-area pos 2)]
-      (if (= text "\n(")
-        pos
-        (recur text-area (inc pos))))
-    (.getLength (.getDocument text-area))))
-  
-(defn get-current-form-bounds
-  [text-area]
-  (let [pos   (.getCaretPosition text-area)
-        start (get-start-of-form text-area pos)
-        end   (get-end-of-form text-area pos)]
-    {:start start :end end}))
-  
-(defn select-form []
-  "Evaluate top level form relative to caret position"
-  (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
-    (let [text-area   (.getTextArea selected-pane)
-          {:keys [start end]} (get-current-form-bounds text-area)
-          form        (.getText text-area start (- end start))]
-      (when form
-        (.select text-area start end)))))
-
-(defn evaluate-selected 
-  "Evaluate top level form relative to caret position"
-  [output-area] 
-  (when-let [selected-pane (.getSelectedComponent @state/editor-tab-pane)]
-    (when-let [project-repl (get @state/output-area-to-repl-map output-area)]
-      (let [text-area   (.getTextArea selected-pane)
-            code        (.getSelectedText text-area)]
-        (repl/eval-and-display code project-repl output-area)))))
-
-(defn select-and-evaluate-form []
-  (select-form)
-  (evaluate-selected))
+ 
+(defn evaluate-top-level-form []
+  (when-let [ta (get-active-text-area)]
+    (let [{:keys [start end]} (ta/get-current-form-bounds ta)
+          text (.getText ta start (- end start))]
+      (repl/eval-and-display text (get-active-repl) (get-active-output-area)))))
 
 (defn evaluate-file []
   (when-let [text-area (get-active-text-area)]
@@ -487,9 +408,6 @@
   (let [find        (seesaw/text :columns 10)
         replace     (seesaw/text :columns 10)
         reverse     (seesaw/checkbox :text "Reverse")        
-        ;wrap        (seesaw/checkbox :text "Wrap" :selected? true)        
-        ;regex       (seesaw/checkbox :text "Regex")
-        ;match-case  (seesaw/checkbox :text "Match Case")
         replace-btn (seesaw/button :text "Replace"
                                    :enabled? false)        
         _ (seesaw/config! replace-btn :listen [:action (fn [_] 
