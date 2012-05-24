@@ -556,6 +556,7 @@
             {:mouse-pressed-fn load-file-on-double-click
              :enter-press-fn load-file-from-tree-selection
              :start-repl-fn repl/start-project-repl
+             :start-repl-fn-2 repl/start-project-repl-2
              :load-file-fn load-file-into-editor
              :close-project-fn close-project }))
   (reset! state/output-tab-pane (seesaw/tabbed-panel))

@@ -67,8 +67,6 @@ Alt-Down         Skip to next form
 Alt-Up           Skip to previous form  
 Ctl-PageUp/Down  Move to next editor tab  
 Shift-Ctl-F      Evaluate file  
-Shift-Ctl-E      Evaluate selected text  
-Shift-Ctl-S      Select top level form and evaluate  
 Ctl-N		 Set repl namespace to that of file with focus  
 Ctl-S            Save file  
 Ctl-W            Close file  

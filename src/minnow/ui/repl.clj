@@ -31,6 +31,8 @@
 
 (def running-repls (atom []))
 
+(def repl-input-index (atom {}))
+
 (def set-full-stacktraces (atom true))
 
 (defn roll-repl-history
@@ -39,6 +41,14 @@
                    (assoc previous :idx (min (- (count v) 1) (max 0 (+ idx roll-amount))))))
   (let [{:keys [idx v]} @history]
     (.setText input-area (get v idx))))
+
+(defn roll-repl-history-2
+  [history input-area repl roll-amount]
+  (swap! history (fn [{:keys [idx v] :as previous}]
+                   (assoc previous :idx (min (- (count v) 1) (max 0 (+ idx roll-amount))))))
+  (let [{:keys [idx v]} @history]
+    (.replaceRange input-area "" (get @repl-input-index repl) (.length (.getText input-area)))    
+    (.append input-area (get v idx))))
 
 (defn update-repl-history!
   [input history]
@@ -51,9 +61,10 @@
 
 (defn show-stacktrace 
   [project-repl output-area]
-  (let [{:keys [out]} (repl/evaluate-code-in-repl project-repl "(clojure.stacktrace/e)")]
+  (let [{:keys [out ns]} (repl/evaluate-code-in-repl project-repl "(clojure.stacktrace/e)")]
     (when out
-      (.append output-area (format "\n%s" out)))))
+      (.append output-area (format "\n%s" out))
+      (.append output-area (format "\n%s => " ns)))))
 
 (defn update-repl-output
   [message code project-repl output-area]
@@ -68,6 +79,23 @@
     (when (and ex @set-full-stacktraces)
       (show-stacktrace project-repl output-area))    
     (.setCaretPosition output-area (-> output-area .getDocument .getLength))))
+
+(defn update-repl-output-2
+  [message code project-repl area]
+  (println "message : " message)
+  (let [{:keys [out err ns value ex root-ex]} message]
+    (when value
+      (.append area (format "\n%s" value)))
+    (when err
+      (.append area (format "\n%s" err)))
+    (when out
+      (.append area (format "\n%s" out)))
+    (if (and ex @set-full-stacktraces)
+      (show-stacktrace project-repl area)
+      (.append area (format "\n%s => " ns)))
+    (let [len (-> area .getDocument .getLength)]
+      (.setCaretPosition area (-> area .getDocument .getLength))
+      (swap! repl-input-index assoc project-repl len))))
 
 (defn eval-and-display
   [code project-repl output-area]
@@ -91,9 +119,78 @@
       KeyEvent/VK_DOWN (roll-repl-history history input-area 1)
       nil)))
 
+(defn eval-and-display-2
+  [code project-repl output-area]
+  (let [resp (repl/evaluate-code-in-repl project-repl code)]
+    (update-repl-output-2 resp code project-repl output-area)))
+
+; strategy
+;
+; - when ctrl-enter record how many chars in window
+; - track how many chars are in the repl window
+; - the differnce is what we send next time?????
+
+(defn evaluate-repl-input-2
+  [repl area history]
+  (let [toeval (subs (.getText area) (get @repl-input-index repl))]
+    (println  "sending : " toeval)
+    (update-repl-history! toeval history)
+    (future
+      (eval-and-display-2 toeval repl area))))
+
+(defn repl-area-listener-2
+  [event repl area history]  
+  (when (= InputEvent/CTRL_MASK (.getModifiers event))
+    (condp = (.getKeyCode event)
+      KeyEvent/VK_ENTER (evaluate-repl-input-2 repl area history)
+      KeyEvent/VK_UP (roll-repl-history-2 history area repl -1)
+      KeyEvent/VK_DOWN (roll-repl-history-2 history area repl 1)
+      nil)))
+
 (defn update-ns
   [ns project-repl output-area]
   (eval-and-display (str "(ns " ns ")") project-repl output-area))
+
+(defn start-project-repl-2
+  [project-dir]
+  (try
+    (let [area         (ta/text-area (File. "minnow.clj"))
+          history      (atom {:idx -1 :v []})
+          project-repl (repl/start (.getAbsolutePath project-dir))
+          repl-close   #(repl/stop project-repl)
+          new-tab      {:title (widgets/button-tab-component
+                                  @state/output-tab-pane
+                                  (.getName project-dir)
+                                  repl-close)
+                         :content (seesaw/scrollable area)
+                         :tip (format "%s : %s" 
+                                (.getAbsolutePath project-dir) 
+                                (:port project-repl))}
+          main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
+      (swap! running-repls conj project-repl)
+      (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
+      (.setRightComponent @state/main-split @state/output-tab-pane)          
+      (.setDividerLocation @state/main-split 0.65)
+      (swap! state/output-area-to-repl-map assoc area project-repl)
+      (seesaw/listen area :key-pressed (fn [event]
+                                         (repl-area-listener-2
+                                            event 
+                                            project-repl 
+                                            area 
+                                            history)))
+      (when @state/output-tab-pane
+        (.setSelectedIndex @state/output-tab-pane (.indexOfComponent @state/output-tab-pane area)))
+      (.setText area "user => ")
+      (.requestFocusInWindow area)
+      (when main-ns
+        (update-ns main-ns project-repl area))
+      (repl/evaluate-code-in-repl project-repl "(require 'clojure.stacktrace)")
+      (swap! repl-input-index assoc project-repl (.length (.getText area)))
+      project-repl)
+    (catch Exception e
+      (.printStackTrace e)
+      (seesaw/alert
+        (str "Couldn't start repl, see exception for details\n\n" (.getMessage e))))))      
 
 (defn start-project-repl
   [project-dir]

@@ -69,6 +69,7 @@
   (if-let [s (seesaw/selection e)]
     (let [file (last s)
           {:keys [start-repl-fn
+                  start-repl-fn-2
                   new-file-fn
                   new-dir-fn
                   load-file-fn
@@ -80,6 +81,7 @@
                       (menu-item tree root text f file)))]
       (if (and (some (set (.listFiles root)) [file]) start-repl-fn)
         [(menu-fn "Start REPL" start-repl-fn)
+         (menu-fn "Start REPL 2" start-repl-fn-2)
          (menu-fn "Close Project" close-project-fn)
          (menu-fn "New File" new-file-fn)
          (menu-fn "New Directory" new-dir-fn)
