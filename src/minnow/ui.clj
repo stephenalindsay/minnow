@@ -376,10 +376,10 @@
 (defn evaluate-file []
   (when-let [text-area (get-active-text-area)]
     (when-let [output-area (get-active-output-area)]
-      (when-let [project-repl (get @state/output-area-to-repl-map output-area)]
-        (.append output-area "\nEvaluating file...\n")
-        (repl/eval-and-display (.getText text-area) project-repl output-area)
-        (.append output-area "\nDone.\n")))))
+      (.append output-area "\nEvaluating file...\n")      
+      (future 
+        (when-let [project-repl (get @state/output-area-to-repl-map output-area)]
+          (repl/eval-and-display (.getText text-area) project-repl output-area))))))
 
 (defn search 
   ([textbox forward]
@@ -514,8 +514,8 @@
                           (.requestFocusInWindow (.getTextArea scrollpane)))))
   (keymap/map-key 
     frame "control R" (fn [e] 
-                        (when-let [output (.getSelectedComponent @state/output-tab-pane)] 
-                          (.requestFocusInWindow (.getBottomComponent output)))))
+                        (when-let [repl (get-active-output-area)] 
+                          (.requestFocus repl))))
   (keymap/map-key frame "control P" (fn [e] (.requestFocusInWindow @state/project-tree))))
 
 (defn close-project

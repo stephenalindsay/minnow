@@ -19,6 +19,7 @@
     [seesaw.core :as seesaw]
     [minnow.repl :as repl]
     [minnow.leiningen :as lein]
+    [minnow.indent :as indent]
     [minnow.ui.state :as state]
     [minnow.ui.text-area :as ta]
     [minnow.ui.widgets :as widgets])
@@ -102,6 +103,22 @@
   [ns project-repl output-area]
   (eval-and-display (str "(ns " ns ")") project-repl output-area))
 
+(defn setup-edit-stopper
+  [document repl]
+  (.setDocumentFilter document
+                      (proxy [javax.swing.text.DocumentFilter] []
+                        (insertString [bypass offset string attr]
+                          (when (>= offset (get @repl-input-index repl 0))
+                            (.insertString bypass offset string attr)))
+                        (remove [bypass offset len]
+                          (when (>= offset (get @repl-input-index repl 0))                          
+                            (.remove bypass offset len)))
+                        (replace [bypass offset len text attrs]
+                          (when (>= offset (get @repl-input-index repl 0))
+                            (.replace bypass offset len 
+                              (indent/indent-text-if-required text document offset)
+                                attrs))))))
+
 (defn start-project-repl
   [project-dir]
   (try
@@ -119,6 +136,7 @@
                                 (.getAbsolutePath project-dir) 
                                 (:port project-repl))}
           main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
+      (setup-edit-stopper (.getDocument area) project-repl)
       (swap! running-repls conj project-repl)
       (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))
       (.setRightComponent @state/main-split @state/output-tab-pane)          

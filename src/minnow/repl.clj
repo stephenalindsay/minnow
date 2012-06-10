@@ -15,8 +15,9 @@
 (ns minnow.repl
   (:require 
     [clojure.tools.nrepl :as nrepl]
-    [clojure.tools.nrepl.server :as server]
-    [clojure.tools.nrepl.ack :as ack]
+    [clojure.tools.nrepl.misc :as nrepl.misc]
+    [clojure.tools.nrepl.server :as nrepl.server]
+    [clojure.tools.nrepl.ack :as nrepl.ack]
     [minnow.util.classpath :as cp]
     [minnow.util.process :as process])
   (:import 
@@ -45,17 +46,17 @@
                     (cp/build-classpath-from-dir (str working-dir (File/separator) "lib")))]
     (if (re-matches #".*clojure-1.*jar.*" classpath)
       (let [ack-server (promise)]
-        (ack/reset-ack-port!)
+        (nrepl.ack/reset-ack-port!)
         ;(future 
         (send-off (agent nil)
           (fn [_]
-            (deliver ack-server (server/start-server :handler (ack/handle-ack false)))))
+            (deliver ack-server (nrepl.server/start-server :handler (nrepl.ack/handle-ack false)))))
         (if (deref ack-server 5000 false)
           (let [ack-port  (.getLocalPort (:ss @@ack-server))
                 proc      (process/start-process
                             ["java" "-cp" classpath "clojure.main" "-m" "minnow.nrepl" (str ack-port)] 
                             working-dir)]
-            (if-let [port (ack/wait-for-ack 15000)]
+            (if-let [port (nrepl.ack/wait-for-ack 15000)]
               (let [client  (nrepl/client (nrepl/connect :port port) 60000)
                     session (nrepl/new-session client)]
                 (println "nREPL started on port: " port)
@@ -66,11 +67,13 @@
 
 (defn evaluate-code-in-repl
   [project-repl code]
-  (let [resp (nrepl/message
+  (let [command-id (nrepl.misc/uuid)
+        resp (nrepl/message
                (:client project-repl)
                {:op :eval
                 :code code
                 :session (:session project-repl)})
+        _  (println "resp : " resp)
         out   (apply str (map :out resp))]
     (assoc (apply merge resp) :out out)))
   

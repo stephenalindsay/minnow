@@ -85,20 +85,23 @@
                     spaces (reduce str (repeat indent " "))]
                 (str result \newline spaces line))
               ) lines)))
+            
+(defn indent-text-if-required
+  [text document offset]
+  (if (= text "\n")
+    (let [indent (calc-indent document offset)]
+      (reduce str text (repeat indent " ")))
+    text))      
 
 (defn setup-auto-indent
   [document]
   (.setDocumentFilter document
                       (proxy [DocumentFilter] []
                         (insertString [bypass offset string attr]
-                                      (.insertString bypass offset string attr))
+                          (.insertString bypass offset string attr))
                         (remove [bypass offset len]
-                                (.remove bypass offset len))
+                          (.remove bypass offset len))
                         (replace [bypass offset len text attrs]
-                                 (if (= text "\n")
-                                   (let [indent (calc-indent document offset)]
-                                     (.replace bypass offset len 
-                                               (reduce str text (repeat indent " "))
-                                               attrs))
-                                   (.replace bypass offset len text attrs))))))
-
+                          (.replace bypass offset len 
+                            (indent-text-if-required text document offset) attrs)))))
+                                 
