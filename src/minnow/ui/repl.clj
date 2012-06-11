@@ -17,6 +17,7 @@
     [clojure.stacktrace :as st]
     [clojure.tools.nrepl :as nrepl]
     [seesaw.core :as seesaw]
+    [seesaw.keymap :as keymap]    
     [minnow.repl :as repl]
     [minnow.leiningen :as lein]
     [minnow.indent :as indent]
@@ -40,8 +41,9 @@
   [history input-area repl roll-amount]
   (swap! history (fn [{:keys [idx v] :as previous}]
                    (assoc previous :idx (min (- (count v) 1) (max 0 (+ idx roll-amount))))))
+  (println "history : " history)
   (let [{:keys [idx v]} @history]
-    (.replaceRange input-area "" (get @repl-input-index repl) (.length (.getText input-area)))    
+    (.replaceRange input-area "" (get @repl-input-index repl) (.length (.getText input-area)))
     (.append input-area (get v idx))))
 
 (defn update-repl-history!
@@ -50,8 +52,9 @@
                    (let [n-1 (get v (- (count v) 1))]
                      (if-not (= input n-1)
                        (assoc previous :v (conj v input)
-                              :idx (inc idx))
-                       previous)))))
+                              :idx (inc (inc idx)))
+                       (assoc previous :idx (inc (inc idx)))))))
+ (println @history))
 
 (defn show-stacktrace 
   [project-repl output-area]
@@ -92,12 +95,16 @@
 
 (defn repl-area-listener
   [event repl area history]  
-  (when (= InputEvent/CTRL_MASK (.getModifiers event))
+  (if (= InputEvent/CTRL_MASK (.getModifiers event))
     (condp = (.getKeyCode event)
-      KeyEvent/VK_ENTER (evaluate-repl-input repl area history)
       KeyEvent/VK_UP (roll-repl-history history area repl -1)
       KeyEvent/VK_DOWN (roll-repl-history history area repl 1)
-      nil)))
+      nil)
+    (when (= KeyEvent/VK_ENTER (.getKeyCode event))      
+      (let [toeval  (subs (.getText area) (get @repl-input-index repl))
+            closed? (= (indent/find-open-paren toeval (count toeval)) -1)]
+        (when closed?
+          (evaluate-repl-input repl area history))))))
 
 (defn update-ns
   [ns project-repl output-area]
@@ -111,7 +118,7 @@
                           (when (>= offset (get @repl-input-index repl 0))
                             (.insertString bypass offset string attr)))
                         (remove [bypass offset len]
-                          (when (>= offset (get @repl-input-index repl 0))                          
+                          (when (>= offset (get @repl-input-index repl 0))
                             (.remove bypass offset len)))
                         (replace [bypass offset len text attrs]
                           (when (>= offset (get @repl-input-index repl 0))

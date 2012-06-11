@@ -15,7 +15,7 @@
 (ns minnow.indent
   (:require [clojure.string :as s])
   (:use [clojure.core.match :only [match]])
-  (:import [javax.swing.text DocumentFilter]))
+  (:import [javax.swing.text DocumentFilter]))  
 
 (defn find-open-paren
   "The irony of this function is that it fails to indent correctly :)"
@@ -35,8 +35,9 @@
             q quoted]
         ;(println n c p s b q)
         (match [c  p     s     b     q    ]
-               [\" _     _     _     _    ] (recur (dec n) parens squares braces (not quoted))
-               [_  _     _     _     true ] (recur (dec n) parens squares braces quoted)            
+               [\" _     _     _     _    ] ; "
+                                            (recur (dec n) parens squares braces (not quoted))
+               [_  _     _     _     true ] (recur (dec n) parens squares braces quoted)  
                [\) _     _     _     false] (recur (dec n) (inc parens) squares braces quoted)
                [\] _     _     _     false] (recur (dec n) parens (inc squares) braces quoted)
                [\} _     _     _     false] (recur (dec n) parens squares (inc braces) quoted)
