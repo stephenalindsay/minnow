@@ -1,4 +1,4 @@
-(defproject minnow "0.1.2"
+(defproject minnow "0.1.3"
   :description "Minnow: a simple programmer's editor for Clojure"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/tools.nrepl "0.2.0-beta5"]

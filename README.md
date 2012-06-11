@@ -39,7 +39,7 @@ If Minnow is not to your liking those projects are definitely worth your conside
 
 Minnow can be launched via leiningen:  
 1) [Install leiningen](https://github.com/technomancy/leiningen/blob/master/README.md)  
-2) lein plugin install lein-minnow "0.1.2"  
+2) lein plugin install lein-minnow "0.1.3"  
 3) lein install minnow.nrepl "0.1.0"   
 4) lein new foo  
 5) cd foo  
@@ -59,9 +59,6 @@ Tested on Ubuntu, untested on Windows or Mac.
 ## Keyboard shortcuts (there will be changes)
 
 Shift-Ctl-R      Start repl for a project from project list  
-Ctl-P	         Navigate to the project explorer  
-Ctl-E	         Navigate to open editor window (if any)  
-Ctl-R            Navigate to active repl input are (if any)  
 Ctl-W            Close current editor window  
 Alt-Down         Skip to next form  
 Alt-Up           Skip to previous form  
