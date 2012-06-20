@@ -7,11 +7,6 @@ NOTE: Very much alpha software.
 There will be bugs. You have been warned.  
 =========================================  
   
-  
-  
-  
-  
-  
 Minnow is intended to be a comfortable first editor for folks new to Clojure who don't already 
 have a strong attachment to any of the other Clojure development environments.
 
@@ -37,14 +32,17 @@ If Minnow is not to your liking those projects are definitely worth your conside
 
 ## Usage
 
-Minnow can be launched via leiningen:  
-1) [Install leiningen](http://leiningen.org/#install)
-2) Add lein-minnow to ~/.lein/plugins.clj eg. {:user {:plugins [[lein-minnow "0.1.4"]]}}
-3) lein minnow
+Minnow can be launched via [leiningen.](http://leiningen.org/#install) 
 
-If you have checked out the sources, minnow can be run from leiningen:  
-1) cd minnow  
-2) lein run  
+Add lein-minnow to your ~/.lein/profiles.clj 
+```clojure
+    {:user {:plugins [[lein-minnow "0.1.4"]]}}
+```
+
+Then run:
+```bash
+    lein minnow
+```
 
 ## Status
 
