@@ -67,12 +67,12 @@
   [message code project-repl area]
   (println "message : " message)
   (let [{:keys [out err ns value ex root-ex]} message]
+    (when out
+      (.append area (format "%s" out)))
     (when value
-      (.append area (format "\n%s" value)))
+      (.append area (format "%s" value)))
     (when err
       (.append area (format "\n%s" err)))
-    (when out
-      (.append area (format "\n%s" out)))
     (if (and ex @set-full-stacktraces)
       (show-stacktrace project-repl area)
       (.append area (format "\n%s => " ns)))
@@ -142,7 +142,7 @@
                          :tip (format "%s : %s" 
                                 (.getAbsolutePath project-dir) 
                                 (:port project-repl))}
-          main-ns      (lein/get-main-fn (lein/read-project-file project-dir))]
+          main-ns      (lein/get-main-fn (str project-dir (File/separator) "project.clj"))]
       (setup-edit-stopper (.getDocument area) project-repl)
       (swap! running-repls conj project-repl)
       (swap! state/output-tab-pane #(seesaw/config! % :tabs (conj (:tabs %) new-tab)))

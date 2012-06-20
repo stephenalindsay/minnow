@@ -22,7 +22,7 @@ Minnow has the following features:
 - source highlighting
 - auto-indenting
 - code re-indenting 
-- leiningen plugin 
+- easy to install/run from leiningen
 
 The project relies heavily on the work of the folks behind:
 
@@ -38,13 +38,9 @@ If Minnow is not to your liking those projects are definitely worth your conside
 ## Usage
 
 Minnow can be launched via leiningen:  
-1) [Install leiningen](https://github.com/technomancy/leiningen/blob/master/README.md)  
-2) lein plugin install lein-minnow "0.1.3"  
-3) lein install minnow.nrepl "0.1.0"   
-4) lein new foo  
-5) cd foo  
-6) lein deps   
-7) lein minnow  
+1) [Install leiningen](http://leiningen.org/#install)
+2) Add lein-minnow to ~/.lein/plugins.clj eg. {:user {:plugins [[lein-minnow "0.1.4"]]}}
+3) lein minnow
 
 If you have checked out the sources, minnow can be run from leiningen:  
 1) cd minnow  

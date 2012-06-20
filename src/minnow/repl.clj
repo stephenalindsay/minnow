@@ -18,7 +18,7 @@
     [clojure.tools.nrepl.misc :as nrepl.misc]
     [clojure.tools.nrepl.server :as nrepl.server]
     [clojure.tools.nrepl.ack :as nrepl.ack]
-    [minnow.util.classpath :as cp]
+    [minnow.leiningen :as lein]
     [minnow.util.process :as process])
   (:import 
     [java.io File]))
@@ -37,13 +37,15 @@
 
 (defn start
   [working-dir]
-  (let [home      (System/getProperty "user.home")
+  (let [proj-path (str working-dir (File/separator) "project.clj")
+        home      (System/getProperty "user.home")
         classpath (str 
                     (reduce str (interpose (File/pathSeparator)
-                                           (conj (map #(str home %) nrepl-jars) 
-                                                 "src" "test")))
-                    (File/pathSeparator) 
-                    (cp/build-classpath-from-dir (str working-dir (File/separator) "lib")))]
+                                           (concat
+                                             (map #(str home %) nrepl-jars) 
+                                             ["src" "test"] ; TODO - needs to be configurable
+                                             (lein/get-classpath proj-path)))))]
+    (println "repl classapth : " classpath)
     (if (re-matches #".*clojure-1.*jar.*" classpath)
       (let [ack-server (promise)]
         (nrepl.ack/reset-ack-port!)

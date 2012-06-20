@@ -13,26 +13,23 @@
 ;;
 
 (ns minnow.leiningen
-  (:require [clojure.java.shell :as shell])
+  (:require 
+    [clojure.java.shell :as shell]
+    [leiningen.core.classpath :as lein.cp]
+    [leiningen.core.project :as lein.project])
   (:import [java.io File]))
 
-(defn get-main-fn
-  [project-file]
-  (when (> (count project-file) 0)
-    (let [x (first project-file)]
-      (if (= x :main)
-        (second project-file)
-        (recur (rest project-file))))))
-
 (defn read-project-file
-  [project-dir]
-  (let [project-file (File. project-dir "project.clj")]
-    (if (.exists project-file)
-      (with-open
-        [r (java.io.PushbackReader.
-             (clojure.java.io/reader project-file))]
-        (binding [*read-eval* false]
-          (read r))))))
+  [path]
+  (lein.project/read path))
+
+(defn get-main-fn
+  [path]
+  (:main (read-project-file path)))
+
+(defn get-classpath
+  [project-file-path]
+  (lein.cp/get-classpath (read-project-file project-file-path)))
 
 (defn new-project
   [lein-path parent-dir name]
@@ -40,6 +37,6 @@
   (shell/sh lein-path "new" name :dir parent-dir)
   (shell/sh lein-path "deps" :dir (str 
                                     parent-dir 
-                                    (java.io.File/separator)
+                                    (File/separator)
                                     name)))
 
