@@ -24,7 +24,7 @@
     [java.io File]))
 
 (def nrepl-jars ["/.m2/repository/minnow/nrepl/minnow.nrepl/0.1.0/minnow.nrepl-0.1.0.jar"
-                 "/.m2/repository/org/clojure/tools.nrepl/0.2.0-beta2/tools.nrepl-0.2.0-beta2.jar"
+                 "/.m2/repository/org/clojure/tools.nrepl/0.2.0-beta5/tools.nrepl-0.2.0-beta5.jar"
                  "/.m2/repository/org/clojure/tools.logging/0.2.3/tools.logging-0.2.3.jar"
                  "/.m2/repository/clj-logging-config/clj-logging-config/1.9.6/clj-logging-config-1.9.6.jar"
                  "/.m2/repository/log4j/log4j/1.2.16/log4j-1.2.16.jar"
