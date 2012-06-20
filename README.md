@@ -39,7 +39,7 @@ If Minnow is not to your liking those projects are definitely worth your conside
 
 Minnow can be launched via [leiningen.](http://leiningen.org/#install) 
 
-Then add lein-minnow to your ~/.lein/profiles.clj 
+Add lein-minnow to your ~/.lein/profiles.clj 
 ```clojure
     {:user {:plugins [[lein-minnow "0.1.4"]]}}
 ```
