@@ -7,11 +7,6 @@ NOTE: Very much alpha software.
 There will be bugs. You have been warned.  
 =========================================  
   
-  
-  
-  
-  
-  
 Minnow is intended to be a comfortable first editor for folks new to Clojure who don't already 
 have a strong attachment to any of the other Clojure development environments.
 
@@ -48,10 +43,6 @@ Then run:
 ```bash
     lein minnow
 ```
-
-If you have checked out the sources, minnow can be run from leiningen:  
-1) cd minnow  
-2) lein run  
 
 ## Status
 
